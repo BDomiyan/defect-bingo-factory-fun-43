@@ -11,8 +11,8 @@ export interface DefectType {
 
 export interface BingoCell {
   id: string;
-  garmentPart: GarmentPart;
-  defectType: DefectType;
+  garmentPart?: GarmentPart;
+  defectType?: DefectType;
   marked: boolean;
   validatedBy?: string;
   validatedAt?: Date;
@@ -40,8 +40,7 @@ export type BingoBoard = BingoCell[][];
 export type BingoStatus = 'none' | 'bingo' | 'fullBoard';
 
 export interface DragItem {
-  type: string;
-  cellId: string;
-  rowIndex: number;
-  colIndex: number;
+  type: 'defect' | 'garment' | 'cell';
+  id: string;
+  data: DefectType | GarmentPart;
 }

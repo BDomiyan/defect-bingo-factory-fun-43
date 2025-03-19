@@ -1,17 +1,18 @@
 
 import { useState, useEffect } from 'react';
 import BingoCard from './BingoCard';
-import { generateBingoBoard, checkForBingo, calculateCompletion } from '@/lib/game-data';
+import DraggableItem from './DraggableItem';
+import { GARMENT_PARTS, DEFECT_TYPES, checkForBingo, calculateCompletion } from '@/lib/game-data';
 import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw, MoveHorizontal } from 'lucide-react';
+import { Award, Sparkles, RefreshCw, FilterX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useDragDrop } from '@/hooks/use-drag-drop';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -19,8 +20,6 @@ interface BingoBoardProps {
 }
 
 const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) => {
-  const [dragEnabled, setDragEnabled] = useState(false);
-  const [initialBoard, setInitialBoard] = useState<BoardType>([]);
   const [bingoLines, setBingoLines] = useState<string[]>([]);
   const [status, setStatus] = useState<BingoStatus>('none');
   const [completion, setCompletion] = useState(0);
@@ -28,33 +27,23 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   
-  // Initialize board
-  useEffect(() => {
-    resetGame();
-  }, [boardSize]);
-  
-  // Initialize drag and drop after board is set
+  // Initialize drag and drop grid
   const {
     board,
     setBoard,
-    draggedCell,
+    draggedItem,
     handleDragStart,
     handleDragOver,
     handleDrop,
-    handleDragEnd
-  } = useDragDrop({
-    initialBoard,
+    handleDragEnd,
+    markCell,
+    resetBoard
+  } = useDragDropGrid({
+    boardSize,
     onBoardChange: (newBoard) => {
       checkBoardStatus(newBoard);
     }
   });
-  
-  // Update board when initialBoard changes
-  useEffect(() => {
-    if (initialBoard.length > 0) {
-      setBoard(initialBoard);
-    }
-  }, [initialBoard]);
   
   // Timer logic
   useEffect(() => {
@@ -74,8 +63,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   }, [isActive, startTime]);
   
   const resetGame = () => {
-    const newBoard = generateBingoBoard(boardSize);
-    setInitialBoard(newBoard);
+    resetBoard();
     setBingoLines([]);
     setStatus('none');
     setCompletion(0);
@@ -85,6 +73,16 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   };
   
   const checkBoardStatus = (currentBoard: BoardType) => {
+    // Check if any cells are filled to start the timer
+    const hasCells = currentBoard.some(row => 
+      row.some(cell => cell.garmentPart && cell.defectType)
+    );
+    
+    if (hasCells && !startTime) {
+      setStartTime(new Date());
+      setIsActive(true);
+    }
+    
     // Check for bingo
     const bingos = checkForBingo(currentBoard);
     const completionPercentage = calculateCompletion(currentBoard);
@@ -111,35 +109,20 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     setBingoLines(bingos);
   };
   
-  const handleCellClick = (cellId: string) => {
+  const handleCellClick = (rowIndex: number, colIndex: number) => {
+    const cell = board[rowIndex][colIndex];
+    
+    // Only allow marking cells that have both garment part and defect type
+    if (!cell.garmentPart || !cell.defectType) {
+      return;
+    }
+    
     if (!startTime) {
       setStartTime(new Date());
       setIsActive(true);
     }
     
-    setBoard(prevBoard => {
-      const newBoard = [...prevBoard];
-      
-      // Find and mark the cell
-      for (let i = 0; i < newBoard.length; i++) {
-        for (let j = 0; j < newBoard[i].length; j++) {
-          if (newBoard[i][j].id === cellId && !newBoard[i][j].marked) {
-            newBoard[i][j] = {
-              ...newBoard[i][j],
-              marked: true,
-              validatedBy: playerName,
-              validatedAt: new Date()
-            };
-            break;
-          }
-        }
-      }
-      
-      // Check board status after marking
-      checkBoardStatus(newBoard);
-      
-      return newBoard;
-    });
+    markCell(rowIndex, colIndex, playerName);
   };
   
   const formatTime = (seconds: number) => {
@@ -168,31 +151,18 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     });
   };
 
-  if (!board.length) return <div>Loading board...</div>;
-
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto">
       {/* Board header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Defect Bingo</h2>
           <p className="text-sm text-muted-foreground">
-            Find and mark defects to complete a line
+            Drag defects and garment parts to the grid to create a bingo pattern
           </p>
         </div>
         
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2 mr-4">
-            <Switch 
-              id="drag-mode" 
-              checked={dragEnabled}
-              onCheckedChange={setDragEnabled}
-            />
-            <Label htmlFor="drag-mode" className="flex items-center text-sm">
-              <MoveHorizontal className="h-3.5 w-3.5 mr-1.5" />
-              Drag Mode
-            </Label>
-          </div>
           <Button
             variant="outline"
             size="sm"
@@ -237,31 +207,71 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       </div>
       
-      {/* Bingo grid */}
-      <div className="grid gap-1.5 sm:gap-2"
-        style={{ 
-          gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-          gridTemplateRows: `repeat(${boardSize}, 1fr)`
-        }}
-      >
-        {board.map((row, rowIndex) =>
-          row.map((cell, colIndex) => (
-            <BingoCard
-              key={cell.id}
-              cell={cell}
-              rowIndex={rowIndex}
-              colIndex={colIndex}
-              isHighlighted={false}
-              isDragging={draggedCell?.rowIndex === rowIndex && draggedCell?.colIndex === colIndex}
-              isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
-              onCellClick={handleCellClick}
-              onDragStart={dragEnabled ? handleDragStart : undefined}
-              onDragOver={dragEnabled ? handleDragOver : undefined}
-              onDrop={dragEnabled ? handleDrop : undefined}
-              onDragEnd={dragEnabled ? handleDragEnd : undefined}
-            />
-          ))
-        )}
+      {/* Main game area with defects on left, board in middle, and garment parts at bottom */}
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-4">
+          {/* Defects list (left side) */}
+          <div className="w-1/4 border rounded-lg p-2">
+            <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
+            <ScrollArea className="h-[460px]">
+              <div className="flex flex-col gap-2 px-2">
+                {DEFECT_TYPES.map((defect) => (
+                  <DraggableItem 
+                    key={defect.code}
+                    type="defect"
+                    item={defect}
+                    onDragStart={handleDragStart}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+          
+          {/* Bingo grid (middle) */}
+          <div className="flex-1">
+            <div 
+              className="grid gap-1.5 sm:gap-2 border rounded-lg p-4"
+              style={{ 
+                gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+                gridTemplateRows: `repeat(${boardSize}, 1fr)`
+              }}
+            >
+              {board.map((row, rowIndex) =>
+                row.map((cell, colIndex) => (
+                  <BingoCard
+                    key={cell.id}
+                    cell={cell}
+                    rowIndex={rowIndex}
+                    colIndex={colIndex}
+                    isHighlighted={false}
+                    isDragging={draggedItem !== null}
+                    isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
+                    onCellClick={handleCellClick}
+                    onDragOver={handleDragOver}
+                    onDrop={() => handleDrop(rowIndex, colIndex)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Garment parts (bottom) */}
+        <div className="border rounded-lg p-2">
+          <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
+          <ScrollArea orientation="horizontal" className="w-full">
+            <div className="flex gap-2 p-2">
+              {GARMENT_PARTS.map((part) => (
+                <DraggableItem 
+                  key={part.code}
+                  type="garment"
+                  item={part}
+                  onDragStart={handleDragStart}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
       
       {/* Status message */}

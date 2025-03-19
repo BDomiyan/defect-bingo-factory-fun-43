@@ -1,5 +1,4 @@
-
-import { GarmentPart, DefectType, Award } from "./types";
+import { GarmentPart, DefectType, Award, BingoBoard } from "./types";
 
 export const GARMENT_PARTS: GarmentPart[] = [
   { code: "A", name: "Label Attach" },
@@ -142,89 +141,59 @@ export const MOCK_PLAYERS: any[] = [
   }
 ];
 
-// Generate a balanced bingo board
-export const generateBingoBoard = (size = 5) => {
-  const board = [];
-  const usedPairs = new Set();
-  
-  for (let i = 0; i < size; i++) {
-    const row = [];
-    for (let j = 0; j < size; j++) {
-      let randomPairIndex;
-      let pairKey;
-      
-      // Ensure we don't repeat combinations
-      do {
-        randomPairIndex = Math.floor(Math.random() * COMMON_DEFECT_PAIRS.length);
-        const pair = COMMON_DEFECT_PAIRS[randomPairIndex];
-        const randomDefectIndex = Math.floor(Math.random() * pair.defectCodes.length);
-        const defectCode = pair.defectCodes[randomDefectIndex];
-        pairKey = `${pair.garmentCode}-${defectCode}`;
-      } while (usedPairs.has(pairKey) && usedPairs.size < 25);
-      
-      usedPairs.add(pairKey);
-      
-      const pair = COMMON_DEFECT_PAIRS[randomPairIndex];
-      const garmentPart = GARMENT_PARTS.find(part => part.code === pair.garmentCode)!;
-      const randomDefectIndex = Math.floor(Math.random() * pair.defectCodes.length);
-      const defectCode = pair.defectCodes[randomDefectIndex];
-      const defectType = DEFECT_TYPES.find(defect => defect.code === defectCode)!;
-      
-      row.push({
-        id: `${i}-${j}`,
-        garmentPart,
-        defectType,
-        marked: false
-      });
-    }
-    board.push(row);
-  }
-  
-  return board;
-};
-
-// Check if board has any bingo
-export const checkForBingo = (board: any[][]): string[] => {
+export const checkForBingo = (board: BingoBoard): string[] => {
   const size = board.length;
   const bingos: string[] = [];
   
   // Check rows
   for (let i = 0; i < size; i++) {
-    if (board[i].every(cell => cell.marked)) {
+    if (board[i].every(cell => cell.marked && cell.garmentPart && cell.defectType)) {
       bingos.push(`row-${i}`);
     }
   }
   
   // Check columns
   for (let j = 0; j < size; j++) {
-    if (board.every(row => row[j].marked)) {
+    if (board.every(row => row[j].marked && row[j].garmentPart && row[j].defectType)) {
       bingos.push(`col-${j}`);
     }
   }
   
   // Check diagonal (top-left to bottom-right)
-  if (Array.from({ length: size }, (_, i) => board[i][i]).every(cell => cell.marked)) {
+  if (Array.from({ length: size }, (_, i) => board[i][i]).every(cell => 
+    cell.marked && cell.garmentPart && cell.defectType
+  )) {
     bingos.push('diag-1');
   }
   
   // Check diagonal (top-right to bottom-left)
-  if (Array.from({ length: size }, (_, i) => board[i][size - 1 - i]).every(cell => cell.marked)) {
+  if (Array.from({ length: size }, (_, i) => board[i][size - 1 - i]).every(cell => 
+    cell.marked && cell.garmentPart && cell.defectType
+  )) {
     bingos.push('diag-2');
   }
   
   return bingos;
 };
 
-// Calculate board completion percentage
-export const calculateCompletion = (board: any[][]): number => {
+export const calculateCompletion = (board: BingoBoard): number => {
   const totalCells = board.length * board[0].length;
+  let filledCells = 0;
   let markedCells = 0;
   
   for (let i = 0; i < board.length; i++) {
     for (let j = 0; j < board[i].length; j++) {
-      if (board[i][j].marked) markedCells++;
+      if (board[i][j].garmentPart && board[i][j].defectType) {
+        filledCells++;
+        
+        if (board[i][j].marked) {
+          markedCells++;
+        }
+      }
     }
   }
   
-  return Math.round((markedCells / totalCells) * 100);
+  if (filledCells === 0) return 0;
+  
+  return Math.round((markedCells / filledCells) * 100);
 };
