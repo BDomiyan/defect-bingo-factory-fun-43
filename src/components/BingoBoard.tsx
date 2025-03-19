@@ -5,10 +5,13 @@ import { generateBingoBoard, checkForBingo, calculateCompletion } from '@/lib/ga
 import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw } from 'lucide-react';
+import { Award, Sparkles, RefreshCw, MoveHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useDragDrop } from '@/hooks/use-drag-drop';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -16,7 +19,8 @@ interface BingoBoardProps {
 }
 
 const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) => {
-  const [board, setBoard] = useState<BoardType>([]);
+  const [dragEnabled, setDragEnabled] = useState(false);
+  const [initialBoard, setInitialBoard] = useState<BoardType>([]);
   const [bingoLines, setBingoLines] = useState<string[]>([]);
   const [status, setStatus] = useState<BingoStatus>('none');
   const [completion, setCompletion] = useState(0);
@@ -28,6 +32,29 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   useEffect(() => {
     resetGame();
   }, [boardSize]);
+  
+  // Initialize drag and drop after board is set
+  const {
+    board,
+    setBoard,
+    draggedCell,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd
+  } = useDragDrop({
+    initialBoard,
+    onBoardChange: (newBoard) => {
+      checkBoardStatus(newBoard);
+    }
+  });
+  
+  // Update board when initialBoard changes
+  useEffect(() => {
+    if (initialBoard.length > 0) {
+      setBoard(initialBoard);
+    }
+  }, [initialBoard]);
   
   // Timer logic
   useEffect(() => {
@@ -48,13 +75,40 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   
   const resetGame = () => {
     const newBoard = generateBingoBoard(boardSize);
-    setBoard(newBoard);
+    setInitialBoard(newBoard);
     setBingoLines([]);
     setStatus('none');
     setCompletion(0);
     setStartTime(null);
     setElapsedTime(0);
     setIsActive(false);
+  };
+  
+  const checkBoardStatus = (currentBoard: BoardType) => {
+    // Check for bingo
+    const bingos = checkForBingo(currentBoard);
+    const completionPercentage = calculateCompletion(currentBoard);
+    setCompletion(completionPercentage);
+    
+    if (bingos.length > 0 && bingoLines.length === 0) {
+      // First bingo
+      setStatus('bingo');
+      toast.success('BINGO!', {
+        description: "You've completed a line!",
+        icon: <Award className="h-5 w-5 text-yellow-500" />,
+      });
+      setIsActive(false);
+    } else if (completionPercentage === 100) {
+      // Full board
+      setStatus('fullBoard');
+      toast.success('FULL BOARD!', {
+        description: "You've marked every defect!",
+        icon: <Sparkles className="h-5 w-5 text-yellow-500" />,
+      });
+      setIsActive(false);
+    }
+    
+    setBingoLines(bingos);
   };
   
   const handleCellClick = (cellId: string) => {
@@ -81,30 +135,8 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         }
       }
       
-      // Check for bingo
-      const bingos = checkForBingo(newBoard);
-      const completionPercentage = calculateCompletion(newBoard);
-      setCompletion(completionPercentage);
-      
-      if (bingos.length > 0 && bingoLines.length === 0) {
-        // First bingo
-        setStatus('bingo');
-        toast.success('BINGO!', {
-          description: "You've completed a line!",
-          icon: <Award className="h-5 w-5 text-yellow-500" />,
-        });
-        setIsActive(false);
-      } else if (completionPercentage === 100) {
-        // Full board
-        setStatus('fullBoard');
-        toast.success('FULL BOARD!', {
-          description: "You've marked every defect!",
-          icon: <Sparkles className="h-5 w-5 text-yellow-500" />,
-        });
-        setIsActive(false);
-      }
-      
-      setBingoLines(bingos);
+      // Check board status after marking
+      checkBoardStatus(newBoard);
       
       return newBoard;
     });
@@ -150,6 +182,17 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
         
         <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mr-4">
+            <Switch 
+              id="drag-mode" 
+              checked={dragEnabled}
+              onCheckedChange={setDragEnabled}
+            />
+            <Label htmlFor="drag-mode" className="flex items-center text-sm">
+              <MoveHorizontal className="h-3.5 w-3.5 mr-1.5" />
+              Drag Mode
+            </Label>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -195,18 +238,27 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       </div>
       
       {/* Bingo grid */}
-      <div className={cn(
-        "grid gap-1.5 transition-all duration-500 sm:gap-2",
-        `grid-cols-${boardSize}`
-      )}>
+      <div className="grid gap-1.5 sm:gap-2"
+        style={{ 
+          gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+          gridTemplateRows: `repeat(${boardSize}, 1fr)`
+        }}
+      >
         {board.map((row, rowIndex) =>
           row.map((cell, colIndex) => (
             <BingoCard
               key={cell.id}
               cell={cell}
+              rowIndex={rowIndex}
+              colIndex={colIndex}
               isHighlighted={false}
+              isDragging={draggedCell?.rowIndex === rowIndex && draggedCell?.colIndex === colIndex}
               isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
               onCellClick={handleCellClick}
+              onDragStart={dragEnabled ? handleDragStart : undefined}
+              onDragOver={dragEnabled ? handleDragOver : undefined}
+              onDrop={dragEnabled ? handleDrop : undefined}
+              onDragEnd={dragEnabled ? handleDragEnd : undefined}
             />
           ))
         )}

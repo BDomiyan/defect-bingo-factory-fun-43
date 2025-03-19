@@ -38,3 +38,10 @@ export interface Award {
 export type BingoBoard = BingoCell[][];
 
 export type BingoStatus = 'none' | 'bingo' | 'fullBoard';
+
+export interface DragItem {
+  type: string;
+  cellId: string;
+  rowIndex: number;
+  colIndex: number;
+}
