@@ -33,11 +33,15 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
   // Handle starting to drag an item (either defect or garment part)
   const handleDragStart = (type: 'defect' | 'garment', data: DefectType | GarmentPart) => {
     setDraggedItem({ type, data });
+    // Set the drag operation as successful
+    return true;
   };
 
   // Handle dragging over a cell
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault(); // Necessary to allow dropping
+    // Necessary to allow dropping
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   // Handle dropping an item onto a cell
@@ -79,7 +83,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
   const markCell = (rowIndex: number, colIndex: number, playerName: string) => {
     // Only mark cells that have both garment part and defect type
     if (!board[rowIndex][colIndex].garmentPart || !board[rowIndex][colIndex].defectType) {
-      return;
+      return false;
     }
 
     const newBoard = [...board.map(row => [...row])];
@@ -87,7 +91,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
       ...newBoard[rowIndex][colIndex],
       marked: true,
       validatedBy: playerName,
-      validatedAt: new Date()
+      validatedAt: new Date().toISOString()
     };
     
     setBoard(newBoard);
@@ -95,13 +99,16 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
     if (onBoardChange) {
       onBoardChange(newBoard);
     }
+    
+    return true;
   };
 
   // Reset the board to empty cells
   const resetBoard = () => {
-    setBoard(initializeEmptyBoard());
+    const emptyBoard = initializeEmptyBoard();
+    setBoard(emptyBoard);
     if (onBoardChange) {
-      onBoardChange(initializeEmptyBoard());
+      onBoardChange(emptyBoard);
     }
   };
 

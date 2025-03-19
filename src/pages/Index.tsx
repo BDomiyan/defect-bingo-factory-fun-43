@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import BingoBoard from '@/components/BingoBoard';
 import AwardsSection from '@/components/AwardsSection';
 import { Button } from '@/components/ui/button';
-import { Award, Info, HelpCircle } from 'lucide-react';
+import { Award, Info, LogIn } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -14,10 +15,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/context/auth-context';
 
 const Index = () => {
+  const { isAuthenticated, user } = useAuth();
+  
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       <Header />
       
       <main className="container py-8">
@@ -26,7 +30,7 @@ const Index = () => {
             <span>Quality Enhancement Initiative</span>
           </div>
           
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3">
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3 text-gradient">
             Defect Bingo
           </h1>
           
@@ -37,7 +41,7 @@ const Index = () => {
           <div className="flex gap-2 mt-6">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" className="gap-1">
+                <Button variant="outline" className="gap-1 glass-hover">
                   <Info className="h-4 w-4" />
                   How to Play
                 </Button>
@@ -118,11 +122,32 @@ const Index = () => {
                 </div>
               </SheetContent>
             </Sheet>
+            
+            {!isAuthenticated ? (
+              <Link to="/login">
+                <Button className="gap-1">
+                  <LogIn className="h-4 w-4" />
+                  Login to Play
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/dashboard">
+                <Button className="gap-1">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            )}
           </div>
+          
+          {isAuthenticated && (
+            <div className="mt-4 px-4 py-2 bg-primary/10 rounded-full text-sm">
+              Welcome back, <span className="font-medium">{user?.name}</span>!
+            </div>
+          )}
         </div>
 
         <div className="mb-12">
-          <BingoBoard boardSize={5} playerName="Test Player" />
+          <BingoBoard boardSize={5} playerName={user?.name || "Guest Player"} />
         </div>
         
         <Separator className="my-8" />

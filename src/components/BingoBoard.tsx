@@ -6,13 +6,13 @@ import { GARMENT_PARTS, DEFECT_TYPES, checkForBingo, calculateCompletion } from 
 import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw, FilterX } from 'lucide-react';
+import { Award, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -26,11 +26,11 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
+  const [gameHistory, setGameHistory] = useLocalStorage<any[]>('gameHistory', []);
   
   // Initialize drag and drop grid
   const {
     board,
-    setBoard,
     draggedItem,
     handleDragStart,
     handleDragOver,
@@ -96,6 +96,18 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         icon: <Award className="h-5 w-5 text-yellow-500" />,
       });
       setIsActive(false);
+      
+      // Save game result to history
+      const gameResult = {
+        id: Date.now(),
+        playerName,
+        type: 'bingo',
+        time: elapsedTime,
+        date: new Date().toISOString(),
+        lines: bingos.length,
+        completion: completionPercentage
+      };
+      setGameHistory([gameResult, ...gameHistory]);
     } else if (completionPercentage === 100) {
       // Full board
       setStatus('fullBoard');
@@ -104,6 +116,18 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         icon: <Sparkles className="h-5 w-5 text-yellow-500" />,
       });
       setIsActive(false);
+      
+      // Save game result to history
+      const gameResult = {
+        id: Date.now(),
+        playerName,
+        type: 'fullBoard',
+        time: elapsedTime,
+        date: new Date().toISOString(),
+        lines: bingos.length,
+        completion: 100
+      };
+      setGameHistory([gameResult, ...gameHistory]);
     }
     
     setBingoLines(bingos);
@@ -152,11 +176,11 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-6xl mx-auto animate-fade-in">
       {/* Board header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Defect Bingo</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-gradient">Defect Bingo</h2>
           <p className="text-sm text-muted-foreground">
             Drag defects and garment parts to the grid to create a bingo pattern
           </p>
@@ -166,7 +190,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 glass-hover"
             onClick={resetGame}
           >
             <RefreshCw className="mr-1 h-3.5 w-3.5" />
@@ -177,23 +201,23 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       
       {/* Status indicators */}
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="flex flex-col space-y-1 rounded-lg border p-3">
+        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Timer</span>
           <span className="font-medium text-lg">
             {formatTime(elapsedTime)}
           </span>
         </div>
         
-        <div className="flex flex-col space-y-1 rounded-lg border p-3">
+        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Status</span>
           <div>
             {status === 'none' && <Badge variant="outline">In Progress</Badge>}
-            {status === 'bingo' && <Badge variant="default">Bingo!</Badge>}
-            {status === 'fullBoard' && <Badge variant="default">Full Board!</Badge>}
+            {status === 'bingo' && <Badge variant="default" className="animate-pulse">Bingo!</Badge>}
+            {status === 'fullBoard' && <Badge variant="default" className="animate-pulse">Full Board!</Badge>}
           </div>
         </div>
         
-        <div className="flex flex-col space-y-1 rounded-lg border p-3">
+        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Completion</span>
           <div className="flex items-center gap-2">
             <Progress value={completion} className="h-2" />
@@ -201,7 +225,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           </div>
         </div>
         
-        <div className="flex flex-col space-y-1 rounded-lg border p-3">
+        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Bingo Lines</span>
           <span className="font-medium text-lg">{bingoLines.length}</span>
         </div>
@@ -211,7 +235,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       <div className="flex flex-col gap-4">
         <div className="flex gap-4">
           {/* Defects list (left side) */}
-          <div className="w-1/4 border rounded-lg p-2">
+          <div className="w-1/4 border rounded-lg p-2 glass-card">
             <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
             <ScrollArea className="h-[460px]">
               <div className="flex flex-col gap-2 px-2">
@@ -230,7 +254,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           {/* Bingo grid (middle) */}
           <div className="flex-1">
             <div 
-              className="grid gap-1.5 sm:gap-2 border rounded-lg p-4"
+              className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
               style={{ 
                 gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
                 gridTemplateRows: `repeat(${boardSize}, 1fr)`
@@ -257,9 +281,9 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
         
         {/* Garment parts (bottom) */}
-        <div className="border rounded-lg p-2">
+        <div className="border rounded-lg p-2 glass-card">
           <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
-          <ScrollArea className="w-full">
+          <ScrollArea className="w-full" orientation="horizontal">
             <div className="flex gap-2 p-2">
               {GARMENT_PARTS.map((part) => (
                 <DraggableItem 
@@ -276,11 +300,11 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       
       {/* Status message */}
       {status !== 'none' && (
-        <div className="mt-6 rounded-lg border bg-card p-4 text-center shadow-sm animate-scale-in">
+        <div className="mt-6 rounded-lg border bg-card p-4 text-center shadow-sm animate-scale-in glass-card">
           <div className="flex flex-col items-center justify-center">
             {status === 'bingo' && (
               <>
-                <Award className="h-10 w-10 text-yellow-500 mb-2" />
+                <Award className="h-10 w-10 text-yellow-500 mb-2 animate-bounce" />
                 <h3 className="text-xl font-medium">BINGO!</h3>
                 <p className="text-muted-foreground">
                   You've completed a line in {formatTime(elapsedTime)}
@@ -289,7 +313,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
             )}
             {status === 'fullBoard' && (
               <>
-                <Sparkles className="h-10 w-10 text-yellow-500 mb-2" />
+                <Sparkles className="h-10 w-10 text-yellow-500 mb-2 animate-pulse" />
                 <h3 className="text-xl font-medium">FULL BOARD COMPLETED!</h3>
                 <p className="text-muted-foreground">
                   You've marked all defects in {formatTime(elapsedTime)}
