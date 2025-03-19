@@ -259,7 +259,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         {/* Garment parts (bottom) */}
         <div className="border rounded-lg p-2">
           <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
-          <ScrollArea orientation="horizontal" className="w-full">
+          <ScrollArea className="w-full">
             <div className="flex gap-2 p-2">
               {GARMENT_PARTS.map((part) => (
                 <DraggableItem 

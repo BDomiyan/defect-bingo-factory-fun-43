@@ -1,9 +1,8 @@
 
-import { useState } from 'react';
-import { Layout, Calendar, LineChart, BarChart3, PieChart, ArrowUpRight, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Layout, Calendar, LineChart, BarChart3, PieChart, ArrowUpRight, Download, Trophy } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MOCK_PLAYERS } from '@/lib/game-data';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { 
@@ -20,33 +19,47 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { toast } from 'sonner';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Player, DefectType, GarmentPart } from '@/lib/types';
 
-// Mock data for charts
-const lineData = [
-  { day: 'Mon', count: 42 },
-  { day: 'Tue', count: 63 },
-  { day: 'Wed', count: 52 },
-  { day: 'Thu', count: 78 },
-  { day: 'Fri', count: 91 },
-  { day: 'Sat', count: 55 },
-  { day: 'Sun', count: 40 }
+// Initial data for charts if no user data exists
+const defaultLineData = [
+  { day: 'Mon', count: 0 },
+  { day: 'Tue', count: 0 },
+  { day: 'Wed', count: 0 },
+  { day: 'Thu', count: 0 },
+  { day: 'Fri', count: 0 },
+  { day: 'Sat', count: 0 },
+  { day: 'Sun', count: 0 }
 ];
 
-const barData = [
-  { name: 'Sleeve Attach', count: 24 },
-  { name: 'Neck Binding', count: 19 },
-  { name: 'Bottom Attach', count: 15 },
-  { name: 'Zipper', count: 12 },
-  { name: 'Label Attach', count: 10 }
+const defaultBarData = [
+  { name: 'Sleeve Attach', count: 0 },
+  { name: 'Neck Binding', count: 0 },
+  { name: 'Bottom Attach', count: 0 },
+  { name: 'Zipper', count: 0 },
+  { name: 'Label Attach', count: 0 }
 ];
 
-const pieData = [
-  { name: 'Broken Stitches', value: 22 },
-  { name: 'Skip Stitches', value: 18 },
-  { name: 'Open Seam', value: 15 },
-  { name: 'Puckering', value: 14 },
-  { name: 'Stain', value: 11 },
-  { name: 'Other', value: 20 }
+const defaultPieData = [
+  { name: 'Broken Stitches', value: 0 },
+  { name: 'Skip Stitches', value: 0 },
+  { name: 'Open Seam', value: 0 },
+  { name: 'Puckering', value: 0 },
+  { name: 'Stain', value: 0 },
+  { name: 'Other', value: 0 }
+];
+
+const defaultPlayers: Player[] = [
+  {
+    id: 'default-player',
+    name: 'New Player',
+    role: 'operator',
+    score: 0,
+    bingoCount: 0,
+    defectsFound: 0
+  }
 ];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#D3D3D3'];
@@ -54,10 +67,93 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#D3D3D3'
 const Dashboard = () => {
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
   
-  // Calculate some statistics from mock data
-  const totalDefects = MOCK_PLAYERS.reduce((sum, player) => sum + player.defectsFound, 0);
-  const avgDefectsPerPlayer = Math.round(totalDefects / MOCK_PLAYERS.length);
-  const topPlayer = [...MOCK_PLAYERS].sort((a, b) => b.score - a.score)[0];
+  // Use localStorage to persist user data
+  const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', defaultPlayers);
+  const [lineData, setLineData] = useLocalStorage('defect-bingo-line-data', defaultLineData);
+  const [barData, setBarData] = useLocalStorage('defect-bingo-bar-data', defaultBarData);
+  const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
+  
+  // Calculate statistics based on user data
+  const totalDefects = players.reduce((sum, player) => sum + player.defectsFound, 0);
+  const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
+  const topPlayer = [...players].sort((a, b) => b.score - a.score)[0] || defaultPlayers[0];
+  
+  // Sample function to add demo data - would be replaced with actual user actions
+  const addDemoData = () => {
+    // Generate random data
+    const newLineData = lineData.map(item => ({
+      ...item,
+      count: Math.floor(Math.random() * 100)
+    }));
+    
+    const newBarData = barData.map(item => ({
+      ...item,
+      count: Math.floor(Math.random() * 30)
+    }));
+    
+    const newPieData = pieData.map(item => ({
+      ...item,
+      value: Math.floor(Math.random() * 25)
+    }));
+    
+    // Update demo players
+    const demoPlayers: Player[] = [
+      {
+        id: '1',
+        name: 'Elena Rodriguez',
+        role: 'operator',
+        score: 92,
+        bingoCount: 3,
+        defectsFound: 45
+      },
+      {
+        id: '2',
+        name: 'Michael Chen',
+        role: 'supervisor',
+        score: 78,
+        bingoCount: 2,
+        defectsFound: 38
+      },
+      {
+        id: '3',
+        name: 'Aisha Patel',
+        role: 'operator',
+        score: 65,
+        bingoCount: 1,
+        defectsFound: 29
+      },
+      {
+        id: '4',
+        name: 'Carlos Mendez',
+        role: 'operator',
+        score: 52,
+        bingoCount: 1,
+        defectsFound: 24
+      }
+    ];
+    
+    // Update the state
+    setLineData(newLineData);
+    setBarData(newBarData);
+    setPieData(newPieData);
+    setPlayers(demoPlayers);
+    
+    toast.success('Demo data loaded', {
+      description: 'Dashboard has been populated with sample data'
+    });
+  };
+  
+  // Reset data to defaults
+  const resetData = () => {
+    setLineData(defaultLineData);
+    setBarData(defaultBarData);
+    setPieData(defaultPieData);
+    setPlayers(defaultPlayers);
+    
+    toast.info('Data reset', {
+      description: 'All dashboard data has been reset to defaults'
+    });
+  };
   
   return (
     <div className="min-h-screen bg-background">
@@ -77,8 +173,22 @@ const Dashboard = () => {
               <Calendar className="h-4 w-4" />
               <span>June 2023</span>
             </Button>
-            <Button variant="outline" size="sm" className="h-9">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9"
+              onClick={addDemoData}
+            >
               <Download className="h-4 w-4" />
+              <span className="ml-1">Load Demo Data</span>
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="h-9"
+              onClick={resetData}
+            >
+              Reset
             </Button>
           </div>
         </div>
@@ -120,7 +230,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">6.3</div>
+              <div className="text-2xl font-bold">{totalDefects > 0 ? (totalDefects / 7).toFixed(1) : '0.0'}</div>
               <div className="mt-1 flex items-center text-xs text-muted-foreground">
                 <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
                 <span className="text-green-500 mr-1">+3.1%</span>
@@ -164,7 +274,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">92%</div>
+              <div className="text-2xl font-bold">{totalDefects > 0 ? '92%' : '0%'}</div>
               <div className="mt-1 flex items-center text-xs text-muted-foreground">
                 <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
                 <span className="text-green-500 mr-1">+8.7%</span>
@@ -314,7 +424,7 @@ const Dashboard = () => {
                     </div>
                     <div className="rounded-md bg-accent/50 px-2 py-1">
                       <p className="text-xs">Awards</p>
-                      <p className="font-medium">3</p>
+                      <p className="font-medium">{topPlayer.score > 0 ? '3' : '0'}</p>
                     </div>
                   </div>
                 </div>
@@ -334,11 +444,11 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">AQL Pass Rate</p>
-                    <p className="text-2xl font-bold">92%</p>
+                    <p className="text-2xl font-bold">{totalDefects > 0 ? '92%' : '0%'}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">Previous</p>
-                    <p className="text-xl">84%</p>
+                    <p className="text-xl">{totalDefects > 0 ? '84%' : '0%'}</p>
                   </div>
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-700">
                     <ArrowUpRight className="h-4 w-4" />
@@ -348,15 +458,15 @@ const Dashboard = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Defects found early</span>
-                    <span className="font-medium">+35%</span>
+                    <span className="font-medium">{totalDefects > 0 ? '+35%' : '0%'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Quality awareness</span>
-                    <span className="font-medium">+42%</span>
+                    <span className="font-medium">{totalDefects > 0 ? '+42%' : '0%'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Team engagement</span>
-                    <span className="font-medium">+28%</span>
+                    <span className="font-medium">{totalDefects > 0 ? '+28%' : '0%'}</span>
                   </div>
                 </div>
               </div>
@@ -367,8 +477,5 @@ const Dashboard = () => {
     </div>
   );
 };
-
-// Import Trophy only where it's used inside the Dashboard
-import { Trophy } from 'lucide-react';
 
 export default Dashboard;
