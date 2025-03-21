@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import BingoCard from './BingoCard';
 import DraggableItem from './DraggableItem';
@@ -28,7 +27,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const [isActive, setIsActive] = useState(false);
   const [gameHistory, setGameHistory] = useLocalStorage<any[]>('gameHistory', []);
   
-  // Initialize drag and drop grid
   const {
     board,
     draggedItem,
@@ -45,7 +43,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     }
   });
   
-  // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
@@ -73,7 +70,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   };
   
   const checkBoardStatus = (currentBoard: BoardType) => {
-    // Check if any cells are filled to start the timer
     const hasCells = currentBoard.some(row => 
       row.some(cell => cell.garmentPart && cell.defectType)
     );
@@ -83,13 +79,11 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       setIsActive(true);
     }
     
-    // Check for bingo
     const bingos = checkForBingo(currentBoard);
     const completionPercentage = calculateCompletion(currentBoard);
     setCompletion(completionPercentage);
     
     if (bingos.length > 0 && bingoLines.length === 0) {
-      // First bingo
       setStatus('bingo');
       toast.success('BINGO!', {
         description: "You've completed a line!",
@@ -97,7 +91,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       });
       setIsActive(false);
       
-      // Save game result to history
       const gameResult = {
         id: Date.now(),
         playerName,
@@ -109,7 +102,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       };
       setGameHistory([gameResult, ...gameHistory]);
     } else if (completionPercentage === 100) {
-      // Full board
       setStatus('fullBoard');
       toast.success('FULL BOARD!', {
         description: "You've marked every defect!",
@@ -117,7 +109,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       });
       setIsActive(false);
       
-      // Save game result to history
       const gameResult = {
         id: Date.now(),
         playerName,
@@ -136,7 +127,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     const cell = board[rowIndex][colIndex];
     
-    // Only allow marking cells that have both garment part and defect type
     if (!cell.garmentPart || !cell.defectType) {
       return;
     }
@@ -177,7 +167,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
 
   return (
     <div className="w-full max-w-6xl mx-auto animate-fade-in">
-      {/* Board header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-gradient">Defect Bingo</h2>
@@ -199,7 +188,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       </div>
       
-      {/* Status indicators */}
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Timer</span>
@@ -231,10 +219,8 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       </div>
       
-      {/* Main game area with defects on left, board in middle, and garment parts at bottom */}
       <div className="flex flex-col gap-4">
         <div className="flex gap-4">
-          {/* Defects list (left side) */}
           <div className="w-1/4 border rounded-lg p-2 glass-card">
             <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
             <ScrollArea className="h-[460px]">
@@ -251,7 +237,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
             </ScrollArea>
           </div>
           
-          {/* Bingo grid (middle) */}
           <div className="flex-1">
             <div 
               className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
@@ -280,10 +265,9 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           </div>
         </div>
         
-        {/* Garment parts (bottom) */}
         <div className="border rounded-lg p-2 glass-card">
           <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
-          <ScrollArea className="w-full" orientation="horizontal">
+          <ScrollArea className="w-full">
             <div className="flex gap-2 p-2">
               {GARMENT_PARTS.map((part) => (
                 <DraggableItem 
@@ -298,7 +282,6 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       </div>
       
-      {/* Status message */}
       {status !== 'none' && (
         <div className="mt-6 rounded-lg border bg-card p-4 text-center shadow-sm animate-scale-in glass-card">
           <div className="flex flex-col items-center justify-center">
