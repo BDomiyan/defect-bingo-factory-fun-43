@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/auth-context';
@@ -23,7 +24,7 @@ type FormData = z.infer<typeof registerSchema>;
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, isLoading, error } = useAuth();
+  const { register: registerUser, isLoading, error } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -47,8 +48,15 @@ const Register = () => {
       // Validate form data
       registerSchema.parse(formData);
       
-      // Register the user
-      await register(formData);
+      // Register the user with explicitly passing all required fields
+      await registerUser({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        employeeId: formData.employeeId,
+        plantId: formData.plantId,
+        lineNumber: formData.lineNumber
+      });
       navigate('/dashboard', { replace: true });
     } catch (err) {
       if (err instanceof z.ZodError) {

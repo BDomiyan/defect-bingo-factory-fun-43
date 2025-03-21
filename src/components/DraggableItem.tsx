@@ -20,7 +20,7 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
     // Set a custom drag image (optional)
     const dragImage = document.createElement('div');
     dragImage.className = 'w-12 h-12 rounded-full bg-primary/80 flex items-center justify-center text-white';
-    dragImage.textContent = isDefect ? defectItem?.code : garmentItem?.code;
+    dragImage.textContent = isDefect ? defectItem?.code.toString() : garmentItem?.code;
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 20, 20);
     
