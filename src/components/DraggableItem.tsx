@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { GarmentPart, DefectType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DragHandleDots2Icon } from '@radix-ui/react-icons';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DraggableItemProps {
   type: 'defect' | 'garment';
@@ -14,6 +15,8 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
   const isDefect = type === 'defect';
   const defectItem = isDefect ? item as DefectType : null;
   const garmentItem = !isDefect ? item as GarmentPart : null;
+  const [isPressed, setIsPressed] = useState(false);
+  const isMobile = useIsMobile();
   
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.effectAllowed = 'move';
@@ -33,17 +36,33 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
     }, 0);
   };
   
+  const handleTouchStart = () => {
+    setIsPressed(true);
+    // For mobile, we'll simulate drag start
+    if (isMobile) {
+      onDragStart(type, item);
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    setIsPressed(false);
+  };
+  
   return (
     <div
       className={cn(
-        "p-2 rounded-md border cursor-grab transition-all hover:shadow-md hover:scale-105",
+        "p-2 rounded-md border cursor-grab transition-all",
         isDefect 
           ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200" 
           : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200",
-        "relative group"
+        "relative group",
+        isPressed ? "scale-95 opacity-80" : "hover:shadow-md hover:scale-105",
+        isMobile && "active:scale-95 transition-transform"
       )}
-      draggable={true}
+      draggable={!isMobile}
       onDragStart={handleDragStart}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <DragHandleDots2Icon className="absolute right-1 top-1 w-3 h-3 text-muted-foreground opacity-40 group-hover:opacity-100" />
       <div className="flex items-center gap-2">

@@ -1,10 +1,11 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BingoCell } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Move, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface BingoCardProps {
   cell: BingoCell;
@@ -31,6 +32,17 @@ const BingoCard = ({
 }: BingoCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isTouchActive, setIsTouchActive] = useState(false);
+  const isMobile = useIsMobile();
+  
+  useEffect(() => {
+    if (isTouchActive) {
+      const timer = setTimeout(() => {
+        setIsTouchActive(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isTouchActive]);
   
   const handleClick = () => {
     if (onCellClick) {
@@ -43,6 +55,12 @@ const BingoCard = ({
         position: 'bottom-right',
       });
     }
+    
+    setIsTouchActive(true);
+  };
+
+  const handleTouchStart = () => {
+    setIsTouchActive(true);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -63,6 +81,7 @@ const BingoCard = ({
 
   const isEmpty = !cell.garmentPart && !cell.defectType;
   const isComplete = cell.garmentPart && cell.defectType;
+  const showHoverEffects = isHovered || isTouchActive;
 
   return (
     <div
@@ -80,11 +99,13 @@ const BingoCard = ({
         isDragging && "opacity-80 border-primary/30 shadow-inner",
         isDragOver && "ring-2 ring-primary/40 scale-105 shadow-lg",
         "hover:shadow-md hover:scale-[1.02] hover:z-10",
-        cell.marked ? "glass-effect-success" : isDragOver ? "glass-effect-active" : "glass-effect"
+        cell.marked ? "glass-effect-success" : isDragOver ? "glass-effect-active" : "glass-effect",
+        isMobile && "active:scale-95 transition-transform"
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => !isMobile && setIsHovered(true)}
+      onMouseLeave={() => !isMobile && setIsHovered(false)}
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -94,11 +115,15 @@ const BingoCard = ({
           {isDragOver ? (
             <Plus className="h-6 w-6 text-primary animate-pulse" />
           ) : (
-            <Move className="h-5 w-5 opacity-40" />
+            isMobile ? (
+              <Plus className="h-5 w-5 opacity-40" />
+            ) : (
+              <Move className="h-5 w-5 opacity-40" />
+            )
           )}
           {!isDragOver && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-xs text-muted-foreground">
-              Drop here
+              {isMobile ? "Tap to place" : "Drop here"}
             </div>
           )}
         </div>
@@ -142,7 +167,7 @@ const BingoCard = ({
           )}
           
           {/* Hover effect for complete cells that aren't marked yet */}
-          {isHovered && isComplete && !cell.marked && (
+          {showHoverEffects && isComplete && !cell.marked && (
             <div className="absolute inset-x-0 bottom-2 flex justify-center">
               <Button
                 variant="ghost"

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import BingoCard from './BingoCard';
 import DraggableItem from './DraggableItem';
@@ -5,13 +6,20 @@ import { GARMENT_PARTS, DEFECT_TYPES, checkForBingo, calculateCompletion } from 
 import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw } from 'lucide-react';
+import { Award, Sparkles, RefreshCw, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -26,6 +34,9 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [gameHistory, setGameHistory] = useLocalStorage<any[]>('gameHistory', []);
+  const [selectedDefect, setSelectedDefect] = useState<string | null>(null);
+  const [selectedGarment, setSelectedGarment] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   
   const {
     board,
@@ -67,6 +78,8 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     setStartTime(null);
     setElapsedTime(0);
     setIsActive(false);
+    setSelectedDefect(null);
+    setSelectedGarment(null);
   };
   
   const checkBoardStatus = (currentBoard: BoardType) => {
@@ -127,6 +140,30 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     const cell = board[rowIndex][colIndex];
     
+    if (isMobile && (selectedDefect || selectedGarment)) {
+      // For mobile: if a defect or garment is selected, place it in the cell
+      if (selectedDefect) {
+        const defect = DEFECT_TYPES.find(d => d.code.toString() === selectedDefect);
+        if (defect) {
+          handleDragStart('defect', defect);
+          handleDrop(rowIndex, colIndex);
+          setSelectedDefect(null);
+          return;
+        }
+      }
+      
+      if (selectedGarment) {
+        const garment = GARMENT_PARTS.find(g => g.code === selectedGarment);
+        if (garment) {
+          handleDragStart('garment', garment);
+          handleDrop(rowIndex, colIndex);
+          setSelectedGarment(null);
+          return;
+        }
+      }
+    }
+    
+    // If cell has both parts, mark it
     if (!cell.garmentPart || !cell.defectType) {
       return;
     }
@@ -165,13 +202,23 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     });
   };
 
+  const handleDefectSelect = (defectCode: string) => {
+    setSelectedDefect(defectCode === selectedDefect ? null : defectCode);
+    setSelectedGarment(null); // Deselect garment when selecting a defect
+  };
+
+  const handleGarmentSelect = (garmentCode: string) => {
+    setSelectedGarment(garmentCode === selectedGarment ? null : garmentCode);
+    setSelectedDefect(null); // Deselect defect when selecting a garment
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto animate-fade-in">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-gradient">Defect Bingo</h2>
           <p className="text-sm text-muted-foreground">
-            Drag defects and garment parts to the grid to create a bingo pattern
+            {isMobile ? "Tap to place defects and mark cells" : "Drag defects and garment parts to create a bingo pattern"}
           </p>
         </div>
         
@@ -219,68 +266,175 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       </div>
       
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-4">
-          <div className="w-1/4 border rounded-lg p-2 glass-card">
-            <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
-            <ScrollArea className="h-[460px]">
-              <div className="flex flex-col gap-2 px-2">
-                {DEFECT_TYPES.map((defect) => (
+      {/* Mobile Layout */}
+      {isMobile && (
+        <div className="flex flex-col gap-4 mb-4">
+          <div 
+            className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
+            style={{ 
+              gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+              gridTemplateRows: `repeat(${boardSize}, 1fr)`
+            }}
+          >
+            {board.map((row, rowIndex) =>
+              row.map((cell, colIndex) => (
+                <BingoCard
+                  key={cell.id}
+                  cell={cell}
+                  rowIndex={rowIndex}
+                  colIndex={colIndex}
+                  isHighlighted={false}
+                  isDragging={draggedItem !== null}
+                  isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
+                  onCellClick={handleCellClick}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(rowIndex, colIndex)}
+                />
+              ))
+            )}
+          </div>
+          
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="defects" className="border rounded-lg glass-card">
+              <AccordionTrigger className="px-4 py-3">
+                <div className="flex items-center">
+                  <h3 className="font-medium text-sm">Defect Types</h3>
+                  {selectedDefect && <Badge className="ml-2 bg-primary/20 text-primary">Selected: {selectedDefect}</Badge>}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-3 gap-2 p-2">
+                  {DEFECT_TYPES.map((defect) => (
+                    <div 
+                      key={defect.code}
+                      className={`p-2 rounded-md border text-center cursor-pointer transition-all
+                        ${selectedDefect === defect.code.toString() 
+                          ? 'border-primary bg-primary/10 shadow-md' 
+                          : 'border-red-200 bg-gradient-to-r from-red-50 to-red-100 hover:shadow-sm'}`}
+                      onClick={() => handleDefectSelect(defect.code.toString())}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center h-7 w-7 rounded-full text-white font-medium text-xs shadow-sm bg-gradient-to-br from-red-500 to-red-600">
+                          {defect.code}
+                        </div>
+                        <div className="text-xs font-medium truncate w-full">
+                          {defect.name}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="garments" className="border rounded-lg glass-card mt-2">
+              <AccordionTrigger className="px-4 py-3">
+                <div className="flex items-center">
+                  <h3 className="font-medium text-sm">Garment Parts</h3>
+                  {selectedGarment && <Badge className="ml-2 bg-primary/20 text-primary">Selected: {selectedGarment}</Badge>}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-3 gap-2 p-2">
+                  {GARMENT_PARTS.map((part) => (
+                    <div 
+                      key={part.code}
+                      className={`p-2 rounded-md border text-center cursor-pointer transition-all
+                        ${selectedGarment === part.code 
+                          ? 'border-primary bg-primary/10 shadow-md' 
+                          : 'border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100 hover:shadow-sm'}`}
+                      onClick={() => handleGarmentSelect(part.code)}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center h-7 w-7 rounded-full text-white font-medium text-xs shadow-sm bg-gradient-to-br from-blue-500 to-blue-600">
+                          {part.code}
+                        </div>
+                        <div className="text-xs font-medium truncate w-full">
+                          {part.name}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+          
+          {selectedDefect || selectedGarment ? (
+            <div className="p-3 rounded-lg border bg-amber-50 border-amber-200 text-center">
+              <p className="text-sm font-medium text-amber-800">
+                {selectedDefect ? 'Defect' : 'Garment'} selected! Tap on a grid cell to place it.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      )}
+      
+      {/* Desktop Layout */}
+      {!isMobile && (
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-4">
+            <div className="w-1/4 border rounded-lg p-2 glass-card">
+              <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
+              <ScrollArea className="h-[460px]">
+                <div className="flex flex-col gap-2 px-2">
+                  {DEFECT_TYPES.map((defect) => (
+                    <DraggableItem 
+                      key={defect.code}
+                      type="defect"
+                      item={defect}
+                      onDragStart={handleDragStart}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            
+            <div className="flex-1">
+              <div 
+                className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
+                style={{ 
+                  gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
+                  gridTemplateRows: `repeat(${boardSize}, 1fr)`
+                }}
+              >
+                {board.map((row, rowIndex) =>
+                  row.map((cell, colIndex) => (
+                    <BingoCard
+                      key={cell.id}
+                      cell={cell}
+                      rowIndex={rowIndex}
+                      colIndex={colIndex}
+                      isHighlighted={false}
+                      isDragging={draggedItem !== null}
+                      isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
+                      onCellClick={handleCellClick}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDrop(rowIndex, colIndex)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="border rounded-lg p-2 glass-card">
+            <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
+            <ScrollArea className="w-full">
+              <div className="flex gap-2 p-2">
+                {GARMENT_PARTS.map((part) => (
                   <DraggableItem 
-                    key={defect.code}
-                    type="defect"
-                    item={defect}
+                    key={part.code}
+                    type="garment"
+                    item={part}
                     onDragStart={handleDragStart}
                   />
                 ))}
               </div>
             </ScrollArea>
           </div>
-          
-          <div className="flex-1">
-            <div 
-              className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
-              style={{ 
-                gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-                gridTemplateRows: `repeat(${boardSize}, 1fr)`
-              }}
-            >
-              {board.map((row, rowIndex) =>
-                row.map((cell, colIndex) => (
-                  <BingoCard
-                    key={cell.id}
-                    cell={cell}
-                    rowIndex={rowIndex}
-                    colIndex={colIndex}
-                    isHighlighted={false}
-                    isDragging={draggedItem !== null}
-                    isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
-                    onCellClick={handleCellClick}
-                    onDragOver={handleDragOver}
-                    onDrop={() => handleDrop(rowIndex, colIndex)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
         </div>
-        
-        <div className="border rounded-lg p-2 glass-card">
-          <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
-          <ScrollArea className="w-full">
-            <div className="flex gap-2 p-2">
-              {GARMENT_PARTS.map((part) => (
-                <DraggableItem 
-                  key={part.code}
-                  type="garment"
-                  item={part}
-                  onDragStart={handleDragStart}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-      </div>
+      )}
       
       {status !== 'none' && (
         <div className="mt-6 rounded-lg border bg-card p-4 text-center shadow-sm animate-scale-in glass-card">
