@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,8 +24,8 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Player, DefectType, GarmentPart } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
-// Initial data for charts if no user data exists
 const defaultLineData = [
   { day: 'Mon', count: 0 },
   { day: 'Tue', count: 0 },
@@ -73,19 +72,16 @@ const Dashboard = () => {
   const [qcRole, setQCRole] = useState<'inline' | 'endline' | 'aql'>('inline');
   const [aqlLevel, setAQLLevel] = useState<'first' | 'second'>('first');
   
-  // Use localStorage to persist user data
   const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', defaultPlayers);
   const [lineData, setLineData] = useLocalStorage('defect-bingo-line-data', defaultLineData);
   const [barData, setBarData] = useLocalStorage('defect-bingo-bar-data', defaultBarData);
   const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
   const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 2.5);
   
-  // Calculate statistics based on user data
   const totalDefects = players.reduce((sum, player) => sum + player.defectsFound, 0);
   const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
   const topPlayer = [...players].sort((a, b) => b.score - a.score)[0] || defaultPlayers[0];
   
-  // Quality traffic light system
   const getQualityStatus = () => {
     if (defectRate < 2.0) return { status: 'green', text: 'Excellent', icon: <CheckCircle className="h-5 w-5 text-green-500" /> };
     if (defectRate < 3.5) return { status: 'yellow', text: 'Average', icon: <AlertTriangle className="h-5 w-5 text-amber-500" /> };
@@ -94,9 +90,7 @@ const Dashboard = () => {
   
   const qualityStatus = getQualityStatus();
   
-  // Sample function to add demo data - would be replaced with actual user actions
   const addDemoData = () => {
-    // Generate random data
     const newLineData = lineData.map(item => ({
       ...item,
       count: Math.floor(Math.random() * 100)
@@ -112,7 +106,6 @@ const Dashboard = () => {
       value: Math.floor(Math.random() * 25)
     }));
     
-    // Update demo players
     const demoPlayers: Player[] = [
       {
         id: '1',
@@ -148,19 +141,17 @@ const Dashboard = () => {
       }
     ];
     
-    // Update the state
     setLineData(newLineData);
     setBarData(newBarData);
     setPieData(newPieData);
     setPlayers(demoPlayers);
-    setDefectRate(Math.random() * 5); // Random defect rate between 0-5%
+    setDefectRate(Math.random() * 5);
     
     toast.success('Demo data loaded', {
       description: 'Dashboard has been populated with sample data'
     });
   };
   
-  // Reset data to defaults
   const resetData = () => {
     setLineData(defaultLineData);
     setBarData(defaultBarData);
@@ -211,7 +202,6 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Analytics cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -311,7 +301,6 @@ const Dashboard = () => {
           </Card>
         </div>
         
-        {/* Main tabs */}
         <Tabs defaultValue="defect-detection" className="mt-6" onValueChange={setActiveTab}>
           <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:grid-cols-4 sm:inline-flex">
             <TabsTrigger value="defect-detection">Defect Detection</TabsTrigger>
@@ -320,7 +309,6 @@ const Dashboard = () => {
             <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
           
-          {/* Defect Detection Tab */}
           <TabsContent value="defect-detection" className="mt-4">
             <Card className="shadow-md">
               <CardHeader>
@@ -511,7 +499,6 @@ const Dashboard = () => {
             </Card>
           </TabsContent>
           
-          {/* Trends Tab */}
           <TabsContent value="trends" className="mt-4">
             <div className="flex justify-between items-center mb-4">
               <div></div>
@@ -616,7 +603,6 @@ const Dashboard = () => {
             </div>
           </TabsContent>
           
-          {/* Incentives Tab */}
           <TabsContent value="incentives" className="mt-4">
             <Card className="shadow-md">
               <CardHeader>
@@ -694,7 +680,6 @@ const Dashboard = () => {
             </Card>
           </TabsContent>
           
-          {/* Reports Tab */}
           <TabsContent value="reports" className="mt-4">
             <Card className="shadow-md">
               <CardHeader>
