@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
@@ -40,7 +39,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [currentUser, setCurrentUser] = useLocalStorage<UserProfile | null>('currentUser', null);
 
   useEffect(() => {
-    // Simulate loading user data
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -53,10 +51,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setError(null);
     
     try {
-      // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      // Get passwords from localStorage
       const credentials = localStorage.getItem('userCredentials');
       const parsedCredentials = credentials ? JSON.parse(credentials) : {};
       
@@ -86,17 +82,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setError(null);
     
     try {
-      // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      // Check if user already exists
       const userExists = users.some(user => user.email === userData.email);
       
       if (userExists) {
         throw new Error('User with this email already exists');
       }
       
-      // Create new user
       const newUser: UserProfile = {
         id: crypto.randomUUID(),
         name: userData.name,
@@ -108,16 +101,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         createdAt: new Date().toISOString()
       };
       
-      // Add user to storage
       setUsers([...users, newUser]);
       
-      // Store password separately
       const credentials = localStorage.getItem('userCredentials');
       const parsedCredentials = credentials ? JSON.parse(credentials) : {};
       parsedCredentials[userData.email] = userData.password;
       localStorage.setItem('userCredentials', JSON.stringify(parsedCredentials));
       
-      // Log user in
       setCurrentUser(newUser);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

@@ -1,4 +1,5 @@
 
+import React from "react"; // Explicitly import React
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +13,6 @@ import NotFound from "./pages/NotFound";
 import Leaderboard from "./components/Leaderboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import React from "react"; // Add React import explicitly
 
 // Create the query client outside of the component
 const queryClient = new QueryClient();
