@@ -662,7 +662,7 @@ const Dashboard = () => {
                       </div>
                       
                       <div className="rounded-lg border p-3">
-                        <div className="font-medium">AQL Pass Rate < 90%</div>
+                        <div className="font-medium">AQL Pass Rate &lt; 90%</div>
                         <div className="text-sm text-muted-foreground">No incentive</div>
                       </div>
                     </div>
