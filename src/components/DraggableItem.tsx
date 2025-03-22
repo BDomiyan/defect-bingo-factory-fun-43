@@ -52,10 +52,10 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
   return (
     <div
       className={cn(
-        "p-2 rounded-md border cursor-grab transition-all",
+        "p-2 rounded-md border cursor-grab transition-all shadow-sm",
         isDefect 
-          ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200" 
-          : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200",
+          ? "bg-gradient-to-r from-rose-50 to-rose-100 border-rose-200 hover:shadow-rose-100" 
+          : "bg-gradient-to-r from-sky-50 to-sky-100 border-sky-200 hover:shadow-sky-100",
         "relative group",
         isPressed ? "scale-95 opacity-80" : "hover:shadow-md hover:scale-105",
         isMobile && "active:scale-95 transition-transform"
@@ -70,8 +70,8 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
         <div className={cn(
           "flex items-center justify-center h-7 w-7 rounded-full text-white font-medium text-xs shadow-sm",
           isDefect 
-            ? "bg-gradient-to-br from-red-500 to-red-600" 
-            : "bg-gradient-to-br from-blue-500 to-blue-600"
+            ? "bg-gradient-to-br from-rose-500 to-rose-600" 
+            : "bg-gradient-to-br from-sky-500 to-sky-600"
         )}>
           {isDefect ? defectItem?.code : garmentItem?.code}
         </div>
