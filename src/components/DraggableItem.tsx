@@ -20,7 +20,8 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
   
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.effectAllowed = 'move';
-    // Set a custom drag image (optional)
+    
+    // Create a custom drag image
     const dragImage = document.createElement('div');
     dragImage.className = 'w-12 h-12 rounded-full bg-primary/80 flex items-center justify-center text-white';
     dragImage.textContent = isDefect ? defectItem?.code.toString() : garmentItem?.code;

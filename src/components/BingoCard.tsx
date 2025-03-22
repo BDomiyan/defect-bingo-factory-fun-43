@@ -86,7 +86,8 @@ const BingoCard = ({
   return (
     <div
       className={cn(
-        "relative aspect-square w-full overflow-hidden rounded-lg border transition-all duration-200 ease-in-out",
+        "relative w-full overflow-hidden rounded-lg border transition-all duration-200 ease-in-out",
+        "aspect-square flex flex-col",
         cell.marked 
           ? "border-primary/40 bg-primary/10" 
           : isEmpty 

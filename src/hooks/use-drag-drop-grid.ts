@@ -91,7 +91,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
       ...newBoard[rowIndex][colIndex],
       marked: true,
       validatedBy: playerName,
-      validatedAt: new Date()
+      validatedAt: new Date()  // Fix: Use Date object instead of string
     };
     
     setBoard(newBoard);

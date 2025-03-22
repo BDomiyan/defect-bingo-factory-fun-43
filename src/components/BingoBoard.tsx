@@ -213,7 +213,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto animate-fade-in">
+    <div className="w-full max-w-6xl mx-auto animate-fade-in px-2 sm:px-4">
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-gradient">Defect Bingo</h2>
@@ -270,7 +270,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       {isMobile && (
         <div className="flex flex-col gap-4 mb-4">
           <div 
-            className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
+            className="grid gap-1.5 sm:gap-2 border rounded-lg p-2 sm:p-4 glass-card"
             style={{ 
               gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
               gridTemplateRows: `repeat(${boardSize}, 1fr)`
@@ -370,13 +370,13 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         </div>
       )}
       
-      {/* Desktop Layout */}
+      {/* Desktop/Tablet Layout */}
       {!isMobile && (
         <div className="flex flex-col gap-4">
-          <div className="flex gap-4">
-            <div className="w-1/4 border rounded-lg p-2 glass-card">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="w-full md:w-1/4 border rounded-lg p-2 glass-card">
               <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
-              <ScrollArea className="h-[460px]">
+              <ScrollArea className="h-[320px] md:h-[460px]">
                 <div className="flex flex-col gap-2 px-2">
                   {DEFECT_TYPES.map((defect) => (
                     <DraggableItem 
@@ -395,7 +395,9 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
                 className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
                 style={{ 
                   gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-                  gridTemplateRows: `repeat(${boardSize}, 1fr)`
+                  gridTemplateRows: `repeat(${boardSize}, 1fr)`,
+                  minHeight: "320px",
+                  height: "100%"
                 }}
               >
                 {board.map((row, rowIndex) =>
@@ -421,14 +423,15 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           <div className="border rounded-lg p-2 glass-card">
             <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
             <ScrollArea className="w-full">
-              <div className="flex gap-2 p-2">
+              <div className="flex flex-wrap gap-2 p-2">
                 {GARMENT_PARTS.map((part) => (
-                  <DraggableItem 
-                    key={part.code}
-                    type="garment"
-                    item={part}
-                    onDragStart={handleDragStart}
-                  />
+                  <div className="w-[calc(20%-8px)] sm:w-auto" key={part.code}>
+                    <DraggableItem 
+                      type="garment"
+                      item={part}
+                      onDragStart={handleDragStart}
+                    />
+                  </div>
                 ))}
               </div>
             </ScrollArea>
