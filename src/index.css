@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +13,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 210 100% 60%;
+    --primary: 215 95% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -31,7 +30,7 @@
 
     --border: 220 20% 90%;
     --input: 220 20% 90%;
-    --ring: 210 100% 60%;
+    --ring: 215 95% 50%;
 
     --radius: 0.75rem;
   }
@@ -163,9 +162,9 @@
     }
   }
 
-  /* Text gradient */
+  /* Text gradient - updated for Jay Jay Quality branding */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary via-primary/90 to-blue-500 text-transparent bg-clip-text;
+    @apply bg-gradient-to-r from-primary via-blue-600 to-blue-700 text-transparent bg-clip-text;
   }
   
   /* Animations */
@@ -250,5 +249,18 @@
       opacity: 0.2;
       transition: 0s;
     }
+  }
+
+  /* Jay Jay Quality specific branding elements */
+  .jj-card {
+    @apply bg-gradient-to-b from-white to-blue-50 border border-blue-100 shadow-md;
+  }
+  
+  .jj-button {
+    @apply bg-gradient-to-r from-primary to-blue-600 text-white font-medium;
+  }
+  
+  .jj-section {
+    @apply bg-gradient-to-br from-blue-50/50 to-background border border-blue-100/50 rounded-xl p-6;
   }
 }

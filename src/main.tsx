@@ -4,7 +4,9 @@ import App from './App.tsx'
 import './index.css'
 import React from 'react' // Explicitly import React
 
-// Ensure React is correctly imported and used
+// Mount the app with proper error boundaries
 createRoot(document.getElementById("root")!).render(
-  <App />
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );

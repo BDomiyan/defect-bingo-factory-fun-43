@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ClipboardCheck } from 'lucide-react';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -67,12 +67,15 @@ const Register = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-background to-blue-50 p-4">
       <div className="w-full max-w-md">
-        <Card className="shadow-xl glass-card">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold text-gradient">Create an Account</CardTitle>
-            <CardDescription>Enter your details to register for Defect Bingo</CardDescription>
+        <Card className="shadow-xl border-primary/10">
+          <CardHeader className="space-y-1 text-center pb-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-3">
+              <ClipboardCheck className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-gradient">Jay Jay Quality</CardTitle>
+            <CardDescription className="text-base">Create an account to access quality tools</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -163,7 +166,7 @@ const Register = () => {
               
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full h-11 text-base"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -177,10 +180,10 @@ const Register = () => {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="flex justify-center border-t pt-4">
             <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary hover:underline">
+              <Link to="/login" className="text-primary font-medium hover:underline">
                 Sign in
               </Link>
             </p>

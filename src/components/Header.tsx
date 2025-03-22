@@ -1,16 +1,27 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutGrid, 
   Award, 
   LineChart, 
   Menu, 
   X,
-  UserCircle
+  UserCircle,
+  ClipboardCheck,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/auth-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type NavItem = {
   name: string;
@@ -38,7 +49,10 @@ const navItems: NavItem[] = [
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('/');
+  const location = useLocation();
+  const { user, logout, isAuthenticated } = useAuth();
+  
+  const activeTab = location.pathname;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -47,13 +61,12 @@ export function Header() {
           <Link
             to="/"
             className="mr-1 flex items-center space-x-2 transition-all duration-200 ease-in-out"
-            onClick={() => setActiveTab('/')}
           >
             <div className="flex rounded-md bg-primary/10 p-2">
-              <LayoutGrid className="h-5 w-5 text-primary" />
+              <ClipboardCheck className="h-5 w-5 text-primary" />
             </div>
             <span className="hidden font-semibold sm:inline-block">
-              Defect Bingo
+              Jay Jay Quality
             </span>
           </Link>
         </div>
@@ -70,7 +83,6 @@ export function Header() {
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground"
                 )}
-                onClick={() => setActiveTab(item.href)}
               >
                 {item.icon}
                 <span className="ml-2">{item.name}</span>
@@ -79,10 +91,34 @@ export function Header() {
           </nav>
 
           <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" className="h-8 gap-1">
-              <UserCircle className="h-4 w-4" />
-              <span>Sign in</span>
-            </Button>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-1">
+                    <UserCircle className="h-4 w-4" />
+                    <span>{user?.name || 'User'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>Profile</DropdownMenuItem>
+                  <DropdownMenuItem>Settings</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-red-500">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link to="/login">
+                <Button variant="outline" size="sm" className="h-9 gap-1">
+                  <UserCircle className="h-4 w-4" />
+                  <span>Sign in</span>
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -116,21 +152,38 @@ export function Header() {
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground"
                 )}
-                onClick={() => {
-                  setActiveTab(item.href);
-                  setIsOpen(false);
-                }}
+                onClick={() => setIsOpen(false)}
               >
                 {item.icon}
                 <span className="ml-2">{item.name}</span>
               </Link>
             ))}
-            <div className="pt-2">
-              <Button variant="outline" size="sm" className="w-full justify-start gap-1">
-                <UserCircle className="h-4 w-4" />
-                <span>Sign in</span>
-              </Button>
-            </div>
+            {isAuthenticated ? (
+              <>
+                <div className="pt-2 px-4 py-2 text-sm font-medium text-muted-foreground">
+                  Signed in as: {user?.name || 'User'}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mx-4 justify-start gap-1 text-red-500 border-red-200"
+                  onClick={() => {
+                    logout();
+                    setIsOpen(false);
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign out</span>
+                </Button>
+              </>
+            ) : (
+              <Link to="/login" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" size="sm" className="mx-4 mt-2 w-[calc(100%-2rem)] justify-start gap-1">
+                  <UserCircle className="h-4 w-4" />
+                  <span>Sign in</span>
+                </Button>
+              </Link>
+            )}
           </nav>
         </div>
       )}

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ClipboardCheck } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -38,12 +38,15 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-background to-blue-50 p-4">
       <div className="w-full max-w-md">
-        <Card className="shadow-xl glass-card">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold text-gradient">Login to Defect Bingo</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
+        <Card className="shadow-xl border-primary/10">
+          <CardHeader className="space-y-1 text-center pb-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-3">
+              <ClipboardCheck className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-gradient">Jay Jay Quality</CardTitle>
+            <CardDescription className="text-base">Sign in to access your quality dashboard</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,6 +65,7 @@ const Login = () => {
                   placeholder="email@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="h-11"
                   required
                 />
               </div>
@@ -79,13 +83,14 @@ const Login = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="h-11"
                   required
                 />
               </div>
               
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full h-11 text-base"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -99,10 +104,10 @@ const Login = () => {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="flex justify-center border-t pt-4">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary hover:underline">
+              <Link to="/register" className="text-primary font-medium hover:underline">
                 Register
               </Link>
             </p>
