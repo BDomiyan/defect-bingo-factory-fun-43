@@ -1,8 +1,11 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
+import FactoryMetrics from '@/components/FactoryMetrics';
+import DefectRecorder from '@/components/DefectRecorder';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -77,6 +80,7 @@ const Dashboard = () => {
   const [barData, setBarData] = useLocalStorage('defect-bingo-bar-data', defaultBarData);
   const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
   const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 2.5);
+  const [recentlyRecordedDefect, setRecentlyRecordedDefect] = useState<any | null>(null);
   
   const totalDefects = players.reduce((sum, player) => sum + player.defectsFound, 0);
   const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
@@ -89,6 +93,53 @@ const Dashboard = () => {
   };
   
   const qualityStatus = getQualityStatus();
+  
+  const handleDefectRecorded = (defect: any) => {
+    setRecentlyRecordedDefect(defect);
+    
+    // Update defect count data
+    const newLineData = [...lineData];
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1; // Convert to 0-6 (Mon-Sun)
+    newLineData[dayIndex].count += 1;
+    setLineData(newLineData);
+    
+    // Update part data
+    const newBarData = [...barData];
+    const partIndex = newBarData.findIndex(item => 
+      item.name.toLowerCase().includes(defect.garmentPart.name.toLowerCase())
+    );
+    if (partIndex >= 0) {
+      newBarData[partIndex].count += 1;
+    }
+    setBarData(newBarData);
+    
+    // Update defect type data
+    const newPieData = [...pieData];
+    const typeIndex = newPieData.findIndex(item => 
+      item.name.toLowerCase().includes(defect.defectType.name.toLowerCase())
+    );
+    if (typeIndex >= 0) {
+      newPieData[typeIndex].value += 1;
+    } else {
+      newPieData[newPieData.length - 1].value += 1; // Add to "Other" category
+    }
+    setPieData(newPieData);
+    
+    // Update current player
+    const updatedPlayers = [...players];
+    const playerIndex = updatedPlayers.findIndex(p => p.id === 'default-player');
+    if (playerIndex >= 0) {
+      updatedPlayers[playerIndex].defectsFound += 1;
+      updatedPlayers[playerIndex].score += 5;
+    }
+    setPlayers(updatedPlayers);
+    
+    // Show success toast
+    toast.success('Defect recorded successfully!', {
+      description: `${defect.garmentPart.name} - ${defect.defectType.name}`,
+    });
+  };
   
   const addDemoData = () => {
     const newLineData = lineData.map(item => ({
@@ -303,176 +354,80 @@ const Dashboard = () => {
         
         <Tabs defaultValue="defect-detection" className="mt-6" onValueChange={setActiveTab}>
           <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:grid-cols-4 sm:inline-flex">
-            <TabsTrigger value="defect-detection">Defect Detection</TabsTrigger>
+            <TabsTrigger value="defect-detection">Defect Recording</TabsTrigger>
             <TabsTrigger value="trends">Quality Trends</TabsTrigger>
+            <TabsTrigger value="factory-metrics">Factory Metrics</TabsTrigger>
             <TabsTrigger value="incentives">Incentives</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
           
           <TabsContent value="defect-detection" className="mt-4">
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle>Defect Detection</CardTitle>
-                <CardDescription>
-                  Record and track defects across different quality control phases
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <DefectRecorder onDefectRecorded={handleDefectRecorded} />
+              
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Defect Analysis</CardTitle>
+                  <CardDescription>
+                    View trends and distributions of recorded defects
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-lg font-medium mb-2">Quality Control Role</h3>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button 
-                          variant={qcRole === 'inline' ? 'default' : 'outline'} 
-                          onClick={() => setQCRole('inline')}
-                          className="flex-1"
-                        >
-                          Inline QC
-                        </Button>
-                        <Button 
-                          variant={qcRole === 'endline' ? 'default' : 'outline'} 
-                          onClick={() => setQCRole('endline')}
-                          className="flex-1"
-                        >
-                          End Line QC
-                        </Button>
-                        <Button 
-                          variant={qcRole === 'aql' ? 'default' : 'outline'} 
-                          onClick={() => setQCRole('aql')}
-                          className="flex-1"
-                        >
-                          AQL
-                        </Button>
+                      <h3 className="text-sm font-medium mb-2">Defect Distribution by Type</h3>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart as RechartsPieChart>
+                            <Pie
+                              data={pieData.filter(item => item.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                              label={({ name, percent }) => 
+                                `${name}: ${(percent * 100).toFixed(0)}%`
+                              }
+                            >
+                              {pieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
                     
-                    {qcRole === 'aql' && (
-                      <div>
-                        <h3 className="text-lg font-medium mb-2">AQL Level</h3>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant={aqlLevel === 'first' ? 'default' : 'outline'} 
-                            onClick={() => setAQLLevel('first')}
-                            className="flex-1"
-                          >
-                            First AQL
-                          </Button>
-                          <Button 
-                            variant={aqlLevel === 'second' ? 'default' : 'outline'} 
-                            onClick={() => setAQLLevel('second')}
-                            className="flex-1"
-                          >
-                            Second AQL
-                          </Button>
+                    {recentlyRecordedDefect && (
+                      <div className="border rounded-lg p-3 bg-green-50 border-green-200 animate-fade-in">
+                        <h4 className="font-medium text-sm text-green-800 mb-1">Recently Recorded Defect</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Garment Part:</span>
+                            <div className="font-medium">{recentlyRecordedDefect.garmentPart.name}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Defect Type:</span>
+                            <div className="font-medium">{recentlyRecordedDefect.defectType.name}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Operator:</span>
+                            <div className="font-medium">{recentlyRecordedDefect.operatorName}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Time:</span>
+                            <div className="font-medium">
+                              {new Date(recentlyRecordedDefect.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
                     
-                    <div>
-                      <h3 className="text-lg font-medium mb-2">Operator Information</h3>
-                      <div className="space-y-2">
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select operator" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {players.map(player => (
-                              <SelectItem key={player.id} value={player.id}>
-                                {player.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-sm font-medium">Line Number</label>
-                            <Input placeholder="Line #" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium">Operation</label>
-                            <Input placeholder="Operation" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-medium mb-2">Defect Information</h3>
-                      <div className="space-y-2">
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select defect type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="broken-stitch">Broken Stitch</SelectItem>
-                            <SelectItem value="skip-stitch">Skip Stitch</SelectItem>
-                            <SelectItem value="open-seam">Open Seam</SelectItem>
-                            <SelectItem value="stain">Stain</SelectItem>
-                            <SelectItem value="puckering">Puckering</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select garment part" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sleeve">Sleeve</SelectItem>
-                            <SelectItem value="collar">Collar</SelectItem>
-                            <SelectItem value="body">Body</SelectItem>
-                            <SelectItem value="seam">Seam</SelectItem>
-                            <SelectItem value="pocket">Pocket</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        
-                        <div className="pt-2">
-                          <Button className="w-full">Record Defect</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="border rounded-lg p-4 bg-accent/30">
-                    <h3 className="text-lg font-medium mb-4">Recent Defects</h3>
-                    
-                    <div className="space-y-2">
-                      {totalDefects > 0 ? (
-                        <>
-                          <div className="flex justify-between p-2 bg-muted rounded-md">
-                            <div>
-                              <Badge className="bg-red-500">01</Badge>
-                              <span className="ml-2">Broken Stitch - Collar</span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">5 min ago</span>
-                          </div>
-                          
-                          <div className="flex justify-between p-2 bg-muted rounded-md">
-                            <div>
-                              <Badge className="bg-yellow-500">03</Badge>
-                              <span className="ml-2">Skip Stitch - Sleeve</span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">12 min ago</span>
-                          </div>
-                          
-                          <div className="flex justify-between p-2 bg-muted rounded-md">
-                            <div>
-                              <Badge className="bg-blue-500">07</Badge>
-                              <span className="ml-2">Stain - Body</span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">25 min ago</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-center p-8 text-muted-foreground">
-                          No defects recorded yet
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t">
-                      <h4 className="font-medium mb-2">Quality Traffic Light</h4>
+                    <div className="border-t pt-3">
+                      <h4 className="font-medium text-sm mb-2">Quality Traffic Light</h4>
                       <div className="flex justify-between items-center">
                         <div className="flex gap-2">
                           <div className={cn(
@@ -494,9 +449,9 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
           
           <TabsContent value="trends" className="mt-4">
@@ -582,7 +537,7 @@ const Dashboard = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
-                        data={pieData}
+                        data={pieData.filter(item => item.value > 0)}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -601,6 +556,10 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+          
+          <TabsContent value="factory-metrics" className="mt-4">
+            <FactoryMetrics />
           </TabsContent>
           
           <TabsContent value="incentives" className="mt-4">
@@ -672,77 +631,6 @@ const Dashboard = () => {
                       <div className="flex items-center justify-between">
                         <div>Pass Rate: <span className="font-bold">92%</span></div>
                         <Badge className="bg-green-500/90">$1.50 per operator</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="reports" className="mt-4">
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle>Quality Reports</CardTitle>
-                <CardDescription>
-                  Summary of quality performance metrics and AQL results
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <Card className="flex-1 shadow-sm">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">First AQL Pass Rate</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">95%</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="flex-1 shadow-sm">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Second AQL Pass Rate</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">98%</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="flex-1 shadow-sm">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Incentive Payout</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">$245.50</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  <div className="rounded-lg border p-4">
-                    <h3 className="text-lg font-medium mb-3">Quality Trend Analysis</h3>
-                    <p className="text-muted-foreground mb-4">
-                      The quality has shown significant improvement over the last 4 weeks.
-                      Inline defect detection has increased by 15%, leading to fewer issues
-                      reaching the final AQL stage.
-                    </p>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-3 bg-accent/20 rounded-lg">
-                        <div className="text-sm text-muted-foreground">Defects Found</div>
-                        <div className="text-xl font-bold">432</div>
-                      </div>
-                      <div className="p-3 bg-accent/20 rounded-lg">
-                        <div className="text-sm text-muted-foreground">Rework Rate</div>
-                        <div className="text-xl font-bold">3.2%</div>
-                      </div>
-                      <div className="p-3 bg-accent/20 rounded-lg">
-                        <div className="text-sm text-muted-foreground">Rejection Rate</div>
-                        <div className="text-xl font-bold">0.8%</div>
-                      </div>
-                      <div className="p-3 bg-accent/20 rounded-lg">
-                        <div className="text-sm text-muted-foreground">On-time Delivery</div>
-                        <div className="text-xl font-bold">99.5%</div>
                       </div>
                     </div>
                   </div>

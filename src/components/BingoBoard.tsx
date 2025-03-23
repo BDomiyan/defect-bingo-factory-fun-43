@@ -2,11 +2,13 @@
 import { useState, useEffect } from 'react';
 import BingoCard from './BingoCard';
 import DraggableItem from './DraggableItem';
+import TutorialGuide from './TutorialGuide';
+import DefectRecorder from './DefectRecorder';
 import { GARMENT_PARTS, DEFECT_TYPES, checkForBingo, calculateCompletion } from '@/lib/game-data';
 import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw, ChevronDown } from 'lucide-react';
+import { Award, Sparkles, RefreshCw, HelpCircle, Timer, Rows, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
@@ -20,6 +22,20 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -36,6 +52,8 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
   const [gameHistory, setGameHistory] = useLocalStorage<any[]>('gameHistory', []);
   const [selectedDefect, setSelectedDefect] = useState<string | null>(null);
   const [selectedGarment, setSelectedGarment] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
   const isMobile = useIsMobile();
   
   const {
@@ -70,6 +88,15 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     };
   }, [isActive, startTime]);
   
+  // Check if it's the first time the user is visiting
+  useEffect(() => {
+    const hasVisitedBefore = localStorage.getItem('has-visited-bingo');
+    if (!hasVisitedBefore) {
+      setShowTutorial(true);
+      localStorage.setItem('has-visited-bingo', 'true');
+    }
+  }, []);
+  
   const resetGame = () => {
     resetBoard();
     setBingoLines([]);
@@ -80,6 +107,36 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
     setIsActive(false);
     setSelectedDefect(null);
     setSelectedGarment(null);
+    
+    toast.success('Game reset!', {
+      description: 'Board has been cleared. Start a new game.',
+    });
+  };
+  
+  const handleDefectRecorded = (defect: any) => {
+    // Find if there's a matching cell with the same garment part and defect type
+    let foundMatch = false;
+    
+    board.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        if (cell.garmentPart?.code === defect.garmentPart.code && 
+            cell.defectType?.code === defect.defectType.code && 
+            !cell.marked) {
+          markCell(rowIndex, colIndex, playerName);
+          foundMatch = true;
+          
+          toast.success('Bingo cell marked!', {
+            description: `${defect.garmentPart.name} - ${defect.defectType.name} has been marked on your bingo board.`
+          });
+        }
+      });
+    });
+    
+    if (!foundMatch) {
+      toast.info('No matching cell found', {
+        description: 'This defect doesn\'t match any unmarked cells on your current bingo board.'
+      });
+    }
   };
   
   const checkBoardStatus = (currentBoard: BoardType) => {
@@ -173,7 +230,14 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
       setIsActive(true);
     }
     
-    markCell(rowIndex, colIndex, playerName);
+    const wasMarked = markCell(rowIndex, colIndex, playerName);
+    
+    if (wasMarked) {
+      toast.success('Defect validated!', {
+        description: `${cell.garmentPart.name} - ${cell.defectType.name}`,
+        position: 'bottom-right',
+      });
+    }
   };
   
   const formatTime = (seconds: number) => {
@@ -214,15 +278,19 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
 
   return (
     <div className="w-full max-w-6xl mx-auto animate-fade-in px-2 sm:px-4">
+      {showTutorial && (
+        <TutorialGuide onClose={() => setShowTutorial(false)} />
+      )}
+      
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-gradient">Defect Bingo</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-gradient">Jay Jay Defect Bingo</h2>
           <p className="text-sm text-muted-foreground">
             {isMobile ? "Tap to place defects and mark cells" : "Drag defects and garment parts to create a bingo pattern"}
           </p>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -232,15 +300,59 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
             <RefreshCw className="mr-1 h-3.5 w-3.5" />
             Reset
           </Button>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 glass-hover"
+                  onClick={() => setShowTutorial(true)}
+                >
+                  <HelpCircle className="mr-1 h-3.5 w-3.5" />
+                  Tutorial
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Show step-by-step tutorial</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <Dialog open={showRecorder} onOpenChange={setShowRecorder}>
+            <DialogTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8"
+              >
+                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                Record Defect
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Quick Defect Recorder</DialogTitle>
+                <DialogDescription>
+                  Record defects as you find them on the factory floor
+                </DialogDescription>
+              </DialogHeader>
+              <DefectRecorder onDefectRecorded={handleDefectRecorded} />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Timer</span>
-          <span className="font-medium text-lg">
-            {formatTime(elapsedTime)}
-          </span>
+          <div className="flex items-center">
+            <Timer className="mr-1 h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-lg">
+              {formatTime(elapsedTime)}
+            </span>
+          </div>
         </div>
         
         <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
@@ -262,7 +374,10 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
         
         <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
           <span className="text-xs text-muted-foreground">Bingo Lines</span>
-          <span className="font-medium text-lg">{bingoLines.length}</span>
+          <div className="flex items-center">
+            <Rows className="mr-1 h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-lg">{bingoLines.length}</span>
+          </div>
         </div>
       </div>
       
@@ -361,7 +476,7 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
           </Accordion>
           
           {selectedDefect || selectedGarment ? (
-            <div className="p-3 rounded-lg border bg-amber-50 border-amber-200 text-center">
+            <div className="p-3 rounded-lg border bg-amber-50 border-amber-200 text-center animate-pulse">
               <p className="text-sm font-medium text-amber-800">
                 {selectedDefect ? 'Defect' : 'Garment'} selected! Tap on a grid cell to place it.
               </p>
@@ -460,9 +575,14 @@ const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) =
                 </p>
               </>
             )}
-            <Button className="mt-3" variant="outline" onClick={resetGame}>
-              Play Again
-            </Button>
+            <div className="flex gap-2 mt-3">
+              <Button variant="outline" onClick={resetGame}>
+                Play Again
+              </Button>
+              <Button onClick={() => setShowRecorder(true)}>
+                Record More Defects
+              </Button>
+            </div>
           </div>
         </div>
       )}

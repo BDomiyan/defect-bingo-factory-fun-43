@@ -15,7 +15,14 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 // Create the query client outside of the component
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1
+    },
+  },
+});
 
 const App = () => (
   <React.StrictMode>
