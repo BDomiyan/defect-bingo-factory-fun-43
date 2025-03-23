@@ -16,6 +16,7 @@ import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 
 interface RecordedDefect {
   id: string;
@@ -53,22 +54,38 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   operatorId = '',
   operatorName = ''
 }) => {
+  const { user } = useAuth();
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
-  const [factoryId, setFactoryId] = useState<string>('');
-  const [lineNumber, setLineNumber] = useState<string>('');
-  const [operatorInput, setOperatorInput] = useState<string>(operatorName);
-  const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId);
+  const [factoryId, setFactoryId] = useState<string>(user?.plantId || '');
+  const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || '');
+  const [operatorInput, setOperatorInput] = useState<string>(operatorName || user?.name || '');
+  const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
   
-  const selectedFactory = factoryList.find(f => f.id === factoryId);
+  // Use the plant from the logged-in user or fall back to the provided factoryList
+  const actualFactoryList = user?.plant 
+    ? [user.plant, ...factoryList.filter(f => f.id !== user.plantId)]
+    : factoryList;
+  
+  const selectedFactory = actualFactoryList.find(f => f.id === factoryId);
+
+  // Update factory and line when user changes
+  useEffect(() => {
+    if (user?.plantId) {
+      setFactoryId(user.plantId);
+    }
+    if (user?.lineNumber) {
+      setLineNumber(user.lineNumber);
+    }
+  }, [user]);
 
   const resetForm = () => {
     setDefectType('');
     setGarmentPart('');
-    if (!operatorId) setOperatorIdInput('');
-    if (!operatorName) setOperatorInput('');
+    if (!operatorId && !user?.employeeId) setOperatorIdInput('');
+    if (!operatorName && !user?.name) setOperatorInput('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -99,8 +116,8 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         defectType: selectedDefectType,
         garmentPart: selectedGarmentPart,
         timestamp: new Date().toISOString(),
-        operatorId: operatorIdInput || 'guest',
-        operatorName: operatorInput || 'Guest User',
+        operatorId: operatorIdInput || user?.employeeId || 'guest',
+        operatorName: operatorInput || user?.name || 'Guest User',
         factoryId,
         lineNumber,
         status: 'pending',
@@ -125,21 +142,25 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
 
   return (
     <div className="w-full bg-card rounded-lg border shadow-sm overflow-hidden">
-      <div className="bg-primary/10 p-3 border-b">
-        <h3 className="font-medium">Quick Defect Recorder</h3>
-        <p className="text-xs text-muted-foreground">Record defects as you find them in real-time</p>
+      <div className="bg-gradient-dark-blue p-3 border-b">
+        <h3 className="font-medium text-white">Quick Defect Recorder</h3>
+        <p className="text-xs text-blue-100">Record defects as you find them in real-time</p>
       </div>
       
       <form onSubmit={handleSubmit} className="p-4 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="factory">Factory</Label>
-            <Select value={factoryId} onValueChange={setFactoryId}>
+            <Select 
+              value={factoryId} 
+              onValueChange={setFactoryId}
+              disabled={user?.role === 'qc'}
+            >
               <SelectTrigger id="factory">
                 <SelectValue placeholder="Select factory" />
               </SelectTrigger>
               <SelectContent>
-                {factoryList.map(factory => (
+                {actualFactoryList.map(factory => (
                   <SelectItem key={factory.id} value={factory.id}>
                     {factory.name}
                   </SelectItem>
@@ -153,7 +174,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
             <Select 
               value={lineNumber} 
               onValueChange={setLineNumber}
-              disabled={!selectedFactory}
+              disabled={!selectedFactory || (user?.role === 'qc' && user?.lineNumber)}
             >
               <SelectTrigger id="line">
                 <SelectValue placeholder="Select line" />
@@ -169,7 +190,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           </div>
         </div>
         
-        {(!operatorId || !operatorName) && (
+        {(!operatorId && !user) && (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="operatorId">Operator ID</Label>
@@ -229,7 +250,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         
         <Button 
           type="submit" 
-          className="w-full" 
+          className="w-full bg-gradient-dark-blue hover:opacity-90 transition-opacity" 
           disabled={isSubmitting}
         >
           {isSubmitting ? (
@@ -257,25 +278,27 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         
         <div className="max-h-[200px] overflow-y-auto space-y-2">
           {recentDefects.length > 0 ? (
-            recentDefects.map(defect => (
-              <div key={defect.id} className="flex items-center justify-between p-2 rounded-md text-sm bg-accent/30">
-                <div className="flex items-center gap-2">
-                  {defect.status === 'verified' ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : defect.status === 'rejected' ? (
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-amber-500" />
-                  )}
-                  <span>
-                    {defect.garmentPart.name} - {defect.defectType.name}
-                  </span>
+            recentDefects
+              .filter(d => user?.role === 'qc' || user?.role === 'admin' ? true : d.factoryId === user?.plantId)
+              .map(defect => (
+                <div key={defect.id} className="flex items-center justify-between p-2 rounded-md text-sm bg-accent/30">
+                  <div className="flex items-center gap-2">
+                    {defect.status === 'verified' ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : defect.status === 'rejected' ? (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Clock className="h-4 w-4 text-amber-500" />
+                    )}
+                    <span>
+                      {defect.garmentPart.name} - {defect.defectType.name}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(defect.timestamp).toLocaleTimeString()}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(defect.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            ))
+              ))
           ) : (
             <div className="text-center p-4 text-sm text-muted-foreground">
               No defects recorded yet

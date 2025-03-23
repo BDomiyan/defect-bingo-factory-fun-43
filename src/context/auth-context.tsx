@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
@@ -8,8 +9,13 @@ export interface UserProfile {
   employeeId: string;
   plantId: string;
   lineNumber: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'manager' | 'qc';
   createdAt: string;
+  plant?: {
+    id: string;
+    name: string;
+    lines: string[];
+  };
 }
 
 interface AuthContextType {
@@ -17,7 +23,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (userData: Omit<UserProfile, 'id' | 'role' | 'createdAt'> & { password: string }) => Promise<void>;
+  register: (userData: Omit<UserProfile, 'id' | 'role' | 'createdAt' | 'plant'> & { password: string }) => Promise<void>;
   logout: () => void;
   error: string | null;
 }
@@ -37,6 +43,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useLocalStorage<UserProfile[]>('users', []);
   const [currentUser, setCurrentUser] = useLocalStorage<UserProfile | null>('currentUser', null);
+  const [plants, setPlants] = useLocalStorage<{id: string, name: string, lines: string[]}[]>('plants', [
+    { id: 'f1', name: 'Factory Alpha', lines: ['L1', 'L2', 'L3'] },
+    { id: 'f2', name: 'Factory Beta', lines: ['L1', 'L2', 'L3', 'L4'] }
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -68,7 +78,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         throw new Error('Incorrect password. Please try again.');
       }
       
-      setCurrentUser(userExists);
+      // Find user's plant information
+      const userPlant = plants.find(plant => plant.id === userExists.plantId);
+      const userWithPlant = {
+        ...userExists,
+        plant: userPlant
+      };
+      
+      setCurrentUser(userWithPlant);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
       throw err;
@@ -77,7 +94,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const register = async (userData: Omit<UserProfile, 'id' | 'role' | 'createdAt'> & { password: string }) => {
+  const register = async (userData: Omit<UserProfile, 'id' | 'role' | 'createdAt' | 'plant'> & { password: string }) => {
     setIsLoading(true);
     setError(null);
     
@@ -90,6 +107,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         throw new Error('User with this email already exists');
       }
       
+      // Verify plant exists
+      const plantExists = plants.some(plant => plant.id === userData.plantId);
+      if (!plantExists) {
+        throw new Error('Selected plant does not exist');
+      }
+      
+      const userPlant = plants.find(plant => plant.id === userData.plantId);
+      
       const newUser: UserProfile = {
         id: crypto.randomUUID(),
         name: userData.name,
@@ -98,7 +123,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         plantId: userData.plantId,
         lineNumber: userData.lineNumber,
         role: 'user',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        plant: userPlant
       };
       
       setUsers([...users, newUser]);

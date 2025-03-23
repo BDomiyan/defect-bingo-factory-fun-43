@@ -85,6 +85,13 @@ export default {
 					DEFAULT: '#14b8a6',
 					dark: '#0d9488',
 				},
+				blue: {
+					light: '#93c5fd',
+					DEFAULT: '#3b82f6',
+					dark: '#1e40af',
+					'dark-gradient': '#0c3483',
+					'light-gradient': '#0ea5e9',
+				},
 				soft: {
 					green: '#f2fce2',
 					yellow: '#fef7cd',
@@ -164,6 +171,7 @@ export default {
 			backgroundImage: {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
 				'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+				'gradient-dark-blue': 'linear-gradient(to right, #0c3483, #0a406c, #0677a1, #0ea5e9)',
 			},
 		}
 	},
