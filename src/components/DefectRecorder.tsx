@@ -174,7 +174,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
             <Select 
               value={lineNumber} 
               onValueChange={setLineNumber}
-              disabled={!selectedFactory || (user?.role === 'qc' && user?.lineNumber)}
+              disabled={!selectedFactory || (user?.role === 'qc' && !!user?.lineNumber)}
             >
               <SelectTrigger id="line">
                 <SelectValue placeholder="Select line" />
