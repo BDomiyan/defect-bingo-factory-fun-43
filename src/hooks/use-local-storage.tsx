@@ -38,10 +38,21 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T)
     }
   };
 
+  // Listen to changes in localStorage
   useEffect(() => {
-    setStoredValue(readValue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === key && event.newValue) {
+        setStoredValue(JSON.parse(event.newValue));
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, [key]);
 
   return [storedValue, setValue];
 }

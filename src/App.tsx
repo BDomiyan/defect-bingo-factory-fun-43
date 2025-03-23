@@ -62,72 +62,70 @@ const App = () => {
   };
   
   return (
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner 
-              position="top-right" 
-              expand 
-              closeButton 
-              theme="light" 
-              richColors 
-              toastOptions={{
-                classNames: {
-                  toast: "bg-white border-blue-200 shadow-lg",
-                  title: "text-blue-900 font-medium",
-                  description: "text-blue-800",
-                  success: "!bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-600",
-                  error: "!bg-gradient-to-r from-red-500 to-rose-500 text-white border-red-600",
-                  info: "!bg-gradient-to-r from-blue-500 to-sky-500 text-white border-blue-600",
-                }
-              }}
-            />
-            <BrowserRouter>
-              <div className="tablet-container">
-                <Routes>
-                  <Route 
-                    path="/" 
-                    element={<Index />} 
-                    action={() => handleRouteChange('/')} 
-                  />
-                  <Route 
-                    path="/login" 
-                    element={<Login />} 
-                    action={() => handleRouteChange('/login')}
-                  />
-                  <Route 
-                    path="/register" 
-                    element={<Register />} 
-                    action={() => handleRouteChange('/register')}
-                  />
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } 
-                    action={() => handleRouteChange('/dashboard')}
-                  />
-                  <Route 
-                    path="/leaderboard" 
-                    element={
-                      <ProtectedRoute>
-                        <Leaderboard />
-                      </ProtectedRoute>
-                    } 
-                    action={() => handleRouteChange('/leaderboard')}
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </div>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner 
+            position="top-right" 
+            expand 
+            closeButton 
+            theme="light" 
+            richColors 
+            toastOptions={{
+              classNames: {
+                toast: "bg-white border-blue-200 shadow-lg",
+                title: "text-blue-900 font-medium",
+                description: "text-blue-800",
+                success: "!bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-600",
+                error: "!bg-gradient-to-r from-red-500 to-rose-500 text-white border-red-600",
+                info: "!bg-gradient-to-r from-blue-500 to-sky-500 text-white border-blue-600",
+              }
+            }}
+          />
+          <BrowserRouter>
+            <div className="tablet-container">
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={<Index />} 
+                  action={() => { handleRouteChange('/'); return null; }}
+                />
+                <Route 
+                  path="/login" 
+                  element={<Login />} 
+                  action={() => { handleRouteChange('/login'); return null; }}
+                />
+                <Route 
+                  path="/register" 
+                  element={<Register />} 
+                  action={() => { handleRouteChange('/register'); return null; }}
+                />
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } 
+                  action={() => { handleRouteChange('/dashboard'); return null; }}
+                />
+                <Route 
+                  path="/leaderboard" 
+                  element={
+                    <ProtectedRoute>
+                      <Leaderboard />
+                    </ProtectedRoute>
+                  } 
+                  action={() => { handleRouteChange('/leaderboard'); return null; }}
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
