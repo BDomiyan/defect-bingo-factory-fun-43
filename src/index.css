@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 215 95% 50%;
+    --primary: 248 79% 74%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -30,7 +31,7 @@
 
     --border: 220 20% 90%;
     --input: 220 20% 90%;
-    --ring: 215 95% 50%;
+    --ring: 248 79% 74%;
 
     --radius: 0.75rem;
   }
@@ -164,7 +165,7 @@
 
   /* Text gradient - updated for Jay Jay Quality branding */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary via-blue-600 to-blue-700 text-transparent bg-clip-text;
+    @apply bg-gradient-to-r from-purple-light via-purple to-primary text-transparent bg-clip-text;
   }
   
   /* Animations */
@@ -216,6 +217,18 @@
     transform: scale(1.05);
   }
   
+  /* Mobile and tablet improvements */
+  @media (max-width: 992px) {
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    .card-grid {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+  }
+
   /* Mobile tap highlights */
   @media (max-width: 768px) {
     * {
@@ -253,14 +266,104 @@
 
   /* Jay Jay Quality specific branding elements */
   .jj-card {
-    @apply bg-gradient-to-b from-white to-blue-50 border border-blue-100 shadow-md;
+    @apply bg-gradient-to-b from-white to-soft-purple border border-purple-light shadow-md;
   }
   
   .jj-button {
-    @apply bg-gradient-to-r from-primary to-blue-600 text-white font-medium;
+    @apply bg-gradient-to-r from-purple to-primary text-white font-medium;
   }
   
   .jj-section {
-    @apply bg-gradient-to-br from-blue-50/50 to-background border border-blue-100/50 rounded-xl p-6;
+    @apply bg-gradient-to-br from-soft-purple to-background border border-purple-light/50 rounded-xl p-6;
   }
+
+  /* Card aesthetic improvements */
+  .analytics-card {
+    @apply bg-gradient-to-b from-white to-soft-blue shadow-md hover:shadow-lg transition-all duration-300;
+  }
+  
+  .defect-card {
+    @apply bg-gradient-to-b from-white to-soft-green shadow-md hover:shadow-lg transition-all duration-300;
+  }
+  
+  .highlight-card {
+    @apply bg-gradient-to-b from-white to-soft-yellow shadow-md hover:shadow-lg transition-all duration-300;
+  }
+  
+  .operator-card {
+    @apply bg-gradient-to-b from-white to-soft-orange shadow-md hover:shadow-lg transition-all duration-300;
+  }
+  
+  /* Data visualization improvements */
+  .chart-container {
+    @apply p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-all;
+  }
+  
+  /* Tablet-specific adjustments */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .tablet-scroll {
+      overflow-x: auto;
+      width: 100%;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .tablet-container {
+      max-width: 100%;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    .tablet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+  }
+  
+  /* Game grid enhancements */
+  .game-grid {
+    @apply grid gap-2 sm:gap-3 md:gap-4 max-w-4xl mx-auto;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  }
+  
+  @media (min-width: 640px) {
+    .game-grid {
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .game-grid {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+  }
+  
+  /* Interactive card styles */
+  .game-card {
+    @apply bg-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg border border-purple-light/30 p-3;
+  }
+  
+  .game-card.active {
+    @apply bg-gradient-to-b from-soft-purple to-white border-purple animate-glow;
+  }
+  
+  .game-card.completed {
+    @apply bg-gradient-to-b from-soft-green to-white border-teal;
+  }
+}
+
+/* Additional Recharts customizations */
+.recharts-cartesian-grid line {
+  stroke: rgba(155, 135, 245, 0.2) !important;
+}
+
+.recharts-cartesian-axis-line {
+  stroke: rgba(155, 135, 245, 0.5) !important;
+}
+
+.recharts-tooltip {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(155, 135, 245, 0.3) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
 }

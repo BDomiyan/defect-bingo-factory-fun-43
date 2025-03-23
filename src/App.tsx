@@ -24,30 +24,48 @@ const queryClient = new QueryClient({
   },
 });
 
+// Add viewport meta tag for better tablet support
+if (typeof document !== 'undefined') {
+  // Check if viewport meta exists
+  let viewportMeta = document.querySelector('meta[name="viewport"]');
+  
+  // If it doesn't exist, create it
+  if (!viewportMeta) {
+    viewportMeta = document.createElement('meta');
+    viewportMeta.setAttribute('name', 'viewport');
+    document.head.appendChild(viewportMeta);
+  }
+  
+  // Set viewport content for better mobile and tablet experience
+  viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+}
+
 const App = () => (
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
-          <Sonner />
+          <Sonner position="top-right" expand closeButton theme="light" richColors />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/leaderboard" element={
-                <ProtectedRoute>
-                  <Leaderboard />
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <div className="tablet-container">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/leaderboard" element={
+                  <ProtectedRoute>
+                    <Leaderboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
