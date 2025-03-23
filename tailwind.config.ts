@@ -150,6 +150,10 @@ export default {
 				'glow': {
 					'0%, 100%': { boxShadow: '0 0 5px rgba(155, 135, 245, 0.5)' },
 					'50%': { boxShadow: '0 0 20px rgba(155, 135, 245, 0.8)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-8px)' }
 				}
 			},
 			animation: {
@@ -163,7 +167,8 @@ export default {
 				'spin-slow': 'spin-slow 8s linear infinite',
 				'pulse-subtle': 'pulse-subtle 3s ease-in-out infinite',
 				'bounce-light': 'bounce-light 2s ease-in-out infinite',
-				'glow': 'glow 2s ease-in-out infinite'
+				'glow': 'glow 2s ease-in-out infinite',
+				'float': 'float 4s ease-in-out infinite'
 			},
 			backdropBlur: {
 				xs: '2px',
@@ -172,6 +177,11 @@ export default {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
 				'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
 				'gradient-dark-blue': 'linear-gradient(to right, #0c3483, #0a406c, #0677a1, #0ea5e9)',
+				'gradient-professional': 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 30%, #3b82f6 100%)',
+				'gradient-purple-blue': 'linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #0ea5e9 100%)',
+				'gradient-card': 'linear-gradient(to bottom, rgba(255,255,255,0.5) 0%, rgba(240,240,250,0.5) 100%)',
+				'gradient-button': 'linear-gradient(to right, #0c3483, #0ea5e9)',
+				'bingo-grid': 'radial-gradient(circle at center, #f0f9ff 0%, #e6f0f9 100%)',
 			},
 		}
 	},

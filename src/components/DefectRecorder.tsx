@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, AlertTriangle, Save, Loader2 } from "lucide-react";
+import { Check, Clock, AlertTriangle, Save, Loader2, Calendar } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
+import { format } from 'date-fns';
 
 interface RecordedDefect {
   id: string;
@@ -63,6 +64,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
+  const [currentDate] = useState(new Date());
   
   // Use the plant from the logged-in user or fall back to the provided factoryList
   const actualFactoryList = user?.plant 
@@ -141,22 +143,28 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   };
 
   return (
-    <div className="w-full bg-card rounded-lg border shadow-sm overflow-hidden">
-      <div className="bg-gradient-dark-blue p-3 border-b">
-        <h3 className="font-medium text-white">Quick Defect Recorder</h3>
-        <p className="text-xs text-blue-100">Record defects as you find them in real-time</p>
+    <div className="w-full bg-card rounded-lg border shadow-md overflow-hidden">
+      <div className="bg-gradient-professional p-4 border-b">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-medium text-white text-lg">Quick Defect Recorder</h3>
+          <Badge variant="outline" className="bg-white/10 text-white border-white/20">
+            <Calendar className="mr-1 h-3 w-3" />
+            {format(currentDate, 'MMM dd, yyyy')}
+          </Badge>
+        </div>
+        <p className="text-sm text-blue-100">Record defects as you find them in real-time</p>
       </div>
       
-      <form onSubmit={handleSubmit} className="p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+      <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="factory">Factory</Label>
+            <Label htmlFor="factory" className="text-blue-800">Factory</Label>
             <Select 
               value={factoryId} 
               onValueChange={setFactoryId}
               disabled={user?.role === 'qc'}
             >
-              <SelectTrigger id="factory">
+              <SelectTrigger id="factory" className="border-blue-200">
                 <SelectValue placeholder="Select factory" />
               </SelectTrigger>
               <SelectContent>
@@ -170,13 +178,13 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="line">Line Number</Label>
+            <Label htmlFor="line" className="text-blue-800">Line Number</Label>
             <Select 
               value={lineNumber} 
               onValueChange={setLineNumber}
               disabled={!selectedFactory || (user?.role === 'qc' && !!user?.lineNumber)}
             >
-              <SelectTrigger id="line">
+              <SelectTrigger id="line" className="border-blue-200">
                 <SelectValue placeholder="Select line" />
               </SelectTrigger>
               <SelectContent>
@@ -191,37 +199,39 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         </div>
         
         {(!operatorId && !user) && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="operatorId">Operator ID</Label>
+              <Label htmlFor="operatorId" className="text-blue-800">Operator ID</Label>
               <Input 
                 id="operatorId" 
                 value={operatorIdInput} 
                 onChange={e => setOperatorIdInput(e.target.value)}
                 placeholder="Enter operator ID"
+                className="border-blue-200"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="operatorName">Operator Name</Label>
+              <Label htmlFor="operatorName" className="text-blue-800">Operator Name</Label>
               <Input 
                 id="operatorName" 
                 value={operatorInput} 
                 onChange={e => setOperatorInput(e.target.value)}
                 placeholder="Enter name"
+                className="border-blue-200"
               />
             </div>
           </div>
         )}
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="defectType">Defect Type</Label>
+            <Label htmlFor="defectType" className="text-blue-800">Defect Type</Label>
             <Select value={defectType} onValueChange={setDefectType}>
-              <SelectTrigger id="defectType">
+              <SelectTrigger id="defectType" className="border-blue-200">
                 <SelectValue placeholder="Select defect" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px]">
                 {DEFECT_TYPES.map(defect => (
                   <SelectItem key={defect.code} value={defect.code.toString()}>
                     {defect.code}: {defect.name}
@@ -232,12 +242,12 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="garmentPart">Garment Part</Label>
+            <Label htmlFor="garmentPart" className="text-blue-800">Garment Part</Label>
             <Select value={garmentPart} onValueChange={setGarmentPart}>
-              <SelectTrigger id="garmentPart">
+              <SelectTrigger id="garmentPart" className="border-blue-200">
                 <SelectValue placeholder="Select part" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px]">
                 {GARMENT_PARTS.map(part => (
                   <SelectItem key={part.code} value={part.code}>
                     {part.code}: {part.name}
@@ -250,38 +260,38 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         
         <Button 
           type="submit" 
-          className="w-full bg-gradient-dark-blue hover:opacity-90 transition-opacity" 
+          className="w-full bg-gradient-button hover:opacity-90 transition-opacity h-12" 
           disabled={isSubmitting}
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Recording...
             </>
           ) : (
             <>
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 h-5 w-5" />
               Record Defect
             </>
           )}
         </Button>
       </form>
       
-      <div className="border-t p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium">Recent Defects</h4>
-          <Badge variant="outline" className="text-xs">
+      <div className="border-t p-4 bg-blue-50/50">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-blue-800">Recent Defects</h4>
+          <Badge variant="outline" className="text-xs bg-blue-100/50 border-blue-200 text-blue-800">
             <Clock className="mr-1 h-3 w-3" />
             Last {recentDefects.length}
           </Badge>
         </div>
         
-        <div className="max-h-[200px] overflow-y-auto space-y-2">
+        <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
           {recentDefects.length > 0 ? (
             recentDefects
               .filter(d => user?.role === 'qc' || user?.role === 'admin' ? true : d.factoryId === user?.plantId)
               .map(defect => (
-                <div key={defect.id} className="flex items-center justify-between p-2 rounded-md text-sm bg-accent/30">
+                <div key={defect.id} className="flex items-center justify-between p-3 rounded-md text-sm bg-white shadow-sm border border-blue-100 hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-2">
                     {defect.status === 'verified' ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -290,7 +300,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                     ) : (
                       <Clock className="h-4 w-4 text-amber-500" />
                     )}
-                    <span>
+                    <span className="font-medium text-blue-900">
                       {defect.garmentPart.name} - {defect.defectType.name}
                     </span>
                   </div>
@@ -300,7 +310,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 </div>
               ))
           ) : (
-            <div className="text-center p-4 text-sm text-muted-foreground">
+            <div className="text-center p-6 text-sm text-muted-foreground bg-white/70 rounded-lg border border-blue-100">
               No defects recorded yet
             </div>
           )}

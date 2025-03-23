@@ -165,7 +165,7 @@
 
   /* Text gradient - updated for Jay Jay Quality branding */
   .text-gradient {
-    @apply bg-gradient-to-r from-purple-light via-purple to-primary text-transparent bg-clip-text;
+    @apply bg-gradient-to-r from-blue-600 via-purple to-primary text-transparent bg-clip-text;
   }
   
   /* Animations */
@@ -175,6 +175,10 @@
   
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out forwards;
+  }
+  
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
   }
   
   .animate-bounce {
@@ -193,6 +197,11 @@
   @keyframes scaleIn {
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
   }
   
   @keyframes bounce {
@@ -266,11 +275,11 @@
 
   /* Jay Jay Quality specific branding elements */
   .jj-card {
-    @apply bg-gradient-to-b from-white to-soft-purple border border-purple-light shadow-md;
+    @apply bg-gradient-to-b from-white to-soft-purple border border-purple-light shadow-md rounded-lg;
   }
   
   .jj-button {
-    @apply bg-gradient-to-r from-purple to-primary text-white font-medium;
+    @apply bg-gradient-button text-white font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-300;
   }
   
   .jj-section {
@@ -279,19 +288,19 @@
 
   /* Card aesthetic improvements */
   .analytics-card {
-    @apply bg-gradient-to-b from-white to-soft-blue shadow-md hover:shadow-lg transition-all duration-300;
+    @apply bg-gradient-to-b from-white to-soft-blue shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
   }
   
   .defect-card {
-    @apply bg-gradient-to-b from-white to-soft-green shadow-md hover:shadow-lg transition-all duration-300;
+    @apply bg-gradient-to-b from-white to-soft-green shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
   }
   
   .highlight-card {
-    @apply bg-gradient-to-b from-white to-soft-yellow shadow-md hover:shadow-lg transition-all duration-300;
+    @apply bg-gradient-to-b from-white to-soft-yellow shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
   }
   
   .operator-card {
-    @apply bg-gradient-to-b from-white to-soft-orange shadow-md hover:shadow-lg transition-all duration-300;
+    @apply bg-gradient-to-b from-white to-soft-orange shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
   }
   
   /* Data visualization improvements */
@@ -309,8 +318,8 @@
     
     .tablet-container {
       max-width: 100%;
-      padding-left: 1rem;
-      padding-right: 1rem;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
     }
     
     .tablet-grid {
@@ -322,48 +331,86 @@
   
   /* Game grid enhancements */
   .game-grid {
-    @apply grid gap-2 sm:gap-3 md:gap-4 max-w-4xl mx-auto;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    @apply grid gap-3 sm:gap-4 md:gap-5 max-w-4xl mx-auto;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
   
   @media (min-width: 640px) {
     .game-grid {
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     }
   }
   
   @media (min-width: 768px) {
     .game-grid {
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     }
+  }
+  
+  /* Bingo grid styles */
+  .bingo-grid {
+    @apply grid grid-cols-5 gap-2 sm:gap-3 bg-bingo-grid rounded-xl p-3 sm:p-4 shadow-lg border border-blue-200/50;
+  }
+  
+  .bingo-cell {
+    @apply bg-white/90 rounded-lg shadow-sm border border-blue-200/50 p-2 sm:p-3 
+    hover:bg-gradient-to-b hover:from-blue-50 hover:to-white transition-all duration-300
+    hover:border-blue-300/70 hover:shadow-md;
+  }
+  
+  .bingo-cell.active {
+    @apply bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-md;
+  }
+  
+  .bingo-cell.completed {
+    @apply bg-gradient-to-b from-green-100 to-white border-green-400;
   }
   
   /* Interactive card styles */
   .game-card {
-    @apply bg-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg border border-purple-light/30 p-3;
+    @apply bg-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg border border-blue-200/50 p-3;
   }
   
   .game-card.active {
-    @apply bg-gradient-to-b from-soft-purple to-white border-purple animate-glow;
+    @apply bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-md;
   }
   
   .game-card.completed {
-    @apply bg-gradient-to-b from-soft-green to-white border-teal;
+    @apply bg-gradient-to-b from-green-100 to-white border-green-400;
+  }
+  
+  /* Enhanced buttons */
+  .btn-gradient {
+    @apply bg-gradient-button text-white rounded-md shadow-sm hover:shadow-md transition-all duration-300;
+  }
+  
+  /* Navigation elements */
+  .nav-item {
+    @apply relative px-3 py-2 rounded-md text-blue-900 hover:bg-blue-50 transition-all;
+  }
+  
+  .nav-item.active {
+    @apply bg-blue-100 font-medium;
+  }
+  
+  .nav-item.active::before {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-full;
   }
 }
 
 /* Additional Recharts customizations */
 .recharts-cartesian-grid line {
-  stroke: rgba(155, 135, 245, 0.2) !important;
+  stroke: rgba(59, 130, 246, 0.2) !important;
 }
 
 .recharts-cartesian-axis-line {
-  stroke: rgba(155, 135, 245, 0.5) !important;
+  stroke: rgba(59, 130, 246, 0.4) !important;
 }
 
 .recharts-tooltip {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid rgba(155, 135, 245, 0.3) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
