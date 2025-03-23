@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +35,7 @@ import {
   LineChart,
   Line
 } from 'recharts';
+import { cn } from "@/lib/utils";
 
 interface FactoryData {
   id: string;
@@ -270,8 +270,7 @@ const FactoryMetrics: React.FC = () => {
             <div className="text-2xl font-bold">{factoryData.aqlPassRate}%</div>
             <Progress 
               value={factoryData.aqlPassRate} 
-              className="h-2 mt-2" 
-              indicatorClassName={factoryData.aqlPassRate > 90 ? "bg-green-600" : "bg-amber-500"}
+              className={cn("h-2 mt-2", factoryData.aqlPassRate > 90 ? "bg-green-600" : "bg-amber-500")} 
             />
           </CardContent>
         </Card>
@@ -460,12 +459,12 @@ const FactoryMetrics: React.FC = () => {
                       <div className="w-24">
                         <Progress 
                           value={operator.efficiency} 
-                          className="h-2"
-                          indicatorClassName={
+                          className={cn(
+                            "h-2",
                             operator.efficiency >= 90 ? "bg-green-500" :
                             operator.efficiency >= 80 ? "bg-amber-500" :
                             "bg-red-500"
-                          }
+                          )}
                         />
                       </div>
                     </div>

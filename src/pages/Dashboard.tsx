@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Calendar, LineChart, BarChart3, PieChart, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
@@ -338,7 +338,7 @@ const Dashboard = () => {
                 <CardDescription>This month</CardDescription>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <PieChart className="h-4 w-4 text-primary" />
+                <PieChartIcon className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
@@ -377,7 +377,7 @@ const Dashboard = () => {
                       <h3 className="text-sm font-medium mb-2">Defect Distribution by Type</h3>
                       <div className="h-[180px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <PieChart as RechartsPieChart>
+                          <RechartsPieChart>
                             <Pie
                               data={pieData.filter(item => item.value > 0)}
                               cx="50%"
@@ -395,7 +395,7 @@ const Dashboard = () => {
                               ))}
                             </Pie>
                             <Tooltip />
-                          </PieChart>
+                          </RechartsPieChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
