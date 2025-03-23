@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import Leaderboard from "./components/Leaderboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Admin from "./pages/Admin";
 
 // Create the query client outside of the component
 const queryClient = new QueryClient({
@@ -59,6 +60,7 @@ const App = () => {
   // Update last visited page for better navigation experience
   const handleRouteChange = (path: string) => {
     setLastVisited(path);
+    return null;
   };
   
   return (
@@ -89,17 +91,17 @@ const App = () => {
                 <Route 
                   path="/" 
                   element={<Index />} 
-                  action={() => { handleRouteChange('/'); return null; }}
+                  action={() => handleRouteChange('/')}
                 />
                 <Route 
                   path="/login" 
                   element={<Login />} 
-                  action={() => { handleRouteChange('/login'); return null; }}
+                  action={() => handleRouteChange('/login')}
                 />
                 <Route 
                   path="/register" 
                   element={<Register />} 
-                  action={() => { handleRouteChange('/register'); return null; }}
+                  action={() => handleRouteChange('/register')}
                 />
                 <Route 
                   path="/dashboard" 
@@ -108,7 +110,7 @@ const App = () => {
                       <Dashboard />
                     </ProtectedRoute>
                   } 
-                  action={() => { handleRouteChange('/dashboard'); return null; }}
+                  action={() => handleRouteChange('/dashboard')}
                 />
                 <Route 
                   path="/leaderboard" 
@@ -117,7 +119,16 @@ const App = () => {
                       <Leaderboard />
                     </ProtectedRoute>
                   } 
-                  action={() => { handleRouteChange('/leaderboard'); return null; }}
+                  action={() => handleRouteChange('/leaderboard')}
+                />
+                <Route 
+                  path="/admin" 
+                  element={
+                    <ProtectedRoute>
+                      <Admin />
+                    </ProtectedRoute>
+                  } 
+                  action={() => handleRouteChange('/admin')}
                 />
                 <Route path="*" element={<NotFound />} />
               </Routes>

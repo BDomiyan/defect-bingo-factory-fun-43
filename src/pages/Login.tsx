@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail, AlertCircle } from "lucide-react";
+import { Lock, Mail, AlertCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 
@@ -26,10 +26,20 @@ const Login = () => {
     
     try {
       await login(email, password);
-      toast.success("Login successful!", {
-        description: "Welcome back to Jay Jay Quality"
-      });
-      navigate("/dashboard");
+      
+      // Check if admin and redirect accordingly
+      const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+      if (user && user.role === 'admin') {
+        toast.success("Admin login successful!", {
+          description: "Welcome to Jay Jay Quality Admin Portal"
+        });
+        navigate("/admin");
+      } else {
+        toast.success("Login successful!", {
+          description: "Welcome back to Jay Jay Quality"
+        });
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
@@ -105,6 +115,11 @@ const Login = () => {
                 >
                   {isLoading ? "Signing in..." : "Sign in"}
                 </Button>
+                
+                <div className="text-center text-sm text-blue-800 bg-blue-50 p-2 rounded-md flex items-center justify-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-blue-600" />
+                  <span>Admin login: admin@jayjay.com / admin123</span>
+                </div>
               </div>
             </form>
           </CardContent>
