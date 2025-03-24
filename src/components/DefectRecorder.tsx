@@ -130,7 +130,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       const updatedDefects = [newDefect, ...recentDefects.slice(0, 19)];
       setRecentDefects(updatedDefects);
       
-      // Call the callback
+      // Call the callback to update dashboard
       onDefectRecorded(newDefect);
       
       toast.success("Defect recorded successfully", {

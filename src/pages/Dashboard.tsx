@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,16 +74,24 @@ const Dashboard = () => {
   const [qcRole, setQCRole] = useState<'inline' | 'endline' | 'aql'>('inline');
   const [aqlLevel, setAQLLevel] = useState<'first' | 'second'>('first');
   
-  const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', defaultPlayers);
+  const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', []);
   const [lineData, setLineData] = useLocalStorage('defect-bingo-line-data', defaultLineData);
   const [barData, setBarData] = useLocalStorage('defect-bingo-bar-data', defaultBarData);
   const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
-  const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 2.5);
+  const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 0);
   const [recentlyRecordedDefect, setRecentlyRecordedDefect] = useState<any | null>(null);
+  const [recentDefects] = useLocalStorage<any[]>('recent-defects', []);
   
-  const totalDefects = players.reduce((sum, player) => sum + player.defectsFound, 0);
+  const totalDefects = recentDefects.length;
   const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
   const topPlayer = [...players].sort((a, b) => b.score - a.score)[0] || defaultPlayers[0];
+  
+  useEffect(() => {
+    if (recentDefects.length > 0) {
+      const randomFactor = Math.random() * 0.5 + 0.8; // Random factor between 0.8 and 1.3
+      setDefectRate(Math.min(5, Math.max(1, (recentDefects.length / 40) * randomFactor)));
+    }
+  }, [recentDefects, setDefectRate]);
   
   const getQualityStatus = () => {
     if (defectRate < 2.0) return { status: 'green', text: 'Excellent', icon: <CheckCircle className="h-5 w-5 text-green-500" /> };
@@ -97,24 +104,23 @@ const Dashboard = () => {
   const handleDefectRecorded = (defect: any) => {
     setRecentlyRecordedDefect(defect);
     
-    // Update defect count data
     const newLineData = [...lineData];
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1; // Convert to 0-6 (Mon-Sun)
     newLineData[dayIndex].count += 1;
     setLineData(newLineData);
     
-    // Update part data
     const newBarData = [...barData];
     const partIndex = newBarData.findIndex(item => 
       item.name.toLowerCase().includes(defect.garmentPart.name.toLowerCase())
     );
     if (partIndex >= 0) {
       newBarData[partIndex].count += 1;
+    } else {
+      newBarData[0].count += 1;
     }
     setBarData(newBarData);
     
-    // Update defect type data
     const newPieData = [...pieData];
     const typeIndex = newPieData.findIndex(item => 
       item.name.toLowerCase().includes(defect.defectType.name.toLowerCase())
@@ -126,16 +132,40 @@ const Dashboard = () => {
     }
     setPieData(newPieData);
     
-    // Update current player
-    const updatedPlayers = [...players];
-    const playerIndex = updatedPlayers.findIndex(p => p.id === 'default-player');
-    if (playerIndex >= 0) {
-      updatedPlayers[playerIndex].defectsFound += 1;
-      updatedPlayers[playerIndex].score += 5;
-    }
-    setPlayers(updatedPlayers);
+    const playerExists = players.some(p => 
+      p.name === defect.operatorName || 
+      (defect.operatorId && p.id === defect.operatorId)
+    );
     
-    // Show success toast
+    if (playerExists) {
+      const updatedPlayers = players.map(p => {
+        if (p.name === defect.operatorName || (defect.operatorId && p.id === defect.operatorId)) {
+          return {
+            ...p,
+            defectsFound: p.defectsFound + 1,
+            score: p.score + 5
+          };
+        }
+        return p;
+      });
+      setPlayers(updatedPlayers);
+    } else if (defect.operatorName) {
+      setPlayers([
+        ...players,
+        {
+          id: defect.operatorId || crypto.randomUUID(),
+          name: defect.operatorName,
+          role: 'operator',
+          score: 5,
+          bingoCount: 0,
+          defectsFound: 1
+        }
+      ]);
+    }
+    
+    const randomFactor = Math.random() * 0.5 + 0.8; // Random factor between 0.8 and 1.3
+    setDefectRate(Math.min(5, Math.max(1, ((recentDefects.length + 1) / 40) * randomFactor)));
+    
     toast.success('Defect recorded successfully!', {
       description: `${defect.garmentPart.name} - ${defect.defectType.name}`,
     });

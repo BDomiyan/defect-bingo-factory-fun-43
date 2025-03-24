@@ -1,591 +1,333 @@
 
-import { useState, useEffect } from 'react';
-import BingoCard from './BingoCard';
-import DraggableItem from './DraggableItem';
-import TutorialGuide from './TutorialGuide';
-import DefectRecorder from './DefectRecorder';
-import { GARMENT_PARTS, DEFECT_TYPES, checkForBingo, calculateCompletion } from '@/lib/game-data';
-import { BingoBoard as BoardType, BingoStatus } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Award, Sparkles, RefreshCw, HelpCircle, Timer, Rows, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from 'react';
+import BingoCard from '@/components/BingoCard';
+import DraggableItem from '@/components/DraggableItem';
+import DefectModal from '@/components/DefectModal';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, Trophy, RefreshCcw } from 'lucide-react';
+import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Player } from '@/lib/types';
 
 interface BingoBoardProps {
   boardSize?: number;
   playerName?: string;
 }
 
-const BingoBoard = ({ boardSize = 5, playerName = "Player" }: BingoBoardProps) => {
-  const [bingoLines, setBingoLines] = useState<string[]>([]);
-  const [status, setStatus] = useState<BingoStatus>('none');
-  const [completion, setCompletion] = useState(0);
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  const [gameHistory, setGameHistory] = useLocalStorage<any[]>('gameHistory', []);
-  const [selectedDefect, setSelectedDefect] = useState<string | null>(null);
-  const [selectedGarment, setSelectedGarment] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [showRecorder, setShowRecorder] = useState(false);
-  const isMobile = useIsMobile();
+const BingoBoard: React.FC<BingoBoardProps> = ({ 
+  boardSize = 5,
+  playerName = "Guest Player"
+}) => {
+  const [activeTab, setActiveTab] = useState("defects");
+  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', []);
+  const [bingoLines, setBingoLines] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
-  const {
-    board,
-    draggedItem,
-    handleDragStart,
-    handleDragOver,
+  // Initialize the drag and drop grid
+  const { 
+    board, 
+    setBoard, 
+    handleDragStart, 
+    handleDragOver, 
     handleDrop,
     handleDragEnd,
     markCell,
     resetBoard
-  } = useDragDropGrid({
-    boardSize,
-    onBoardChange: (newBoard) => {
-      checkBoardStatus(newBoard);
-    }
-  });
+  } = useDragDropGrid({ boardSize });
   
+  // Update isMobile state when window is resized
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (isActive && startTime) {
-      interval = setInterval(() => {
-        setElapsedTime(Math.floor((new Date().getTime() - startTime.getTime()) / 1000));
-      }, 1000);
-    } else if (!isActive && interval) {
-      clearInterval(interval);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
     };
-  }, [isActive, startTime]);
-  
-  // Check if it's the first time the user is visiting
-  useEffect(() => {
-    const hasVisitedBefore = localStorage.getItem('has-visited-bingo');
-    if (!hasVisitedBefore) {
-      setShowTutorial(true);
-      localStorage.setItem('has-visited-bingo', 'true');
-    }
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  const resetGame = () => {
-    resetBoard();
-    setBingoLines([]);
-    setStatus('none');
-    setCompletion(0);
-    setStartTime(null);
-    setElapsedTime(0);
-    setIsActive(false);
-    setSelectedDefect(null);
-    setSelectedGarment(null);
-    
-    toast.success('Game reset!', {
-      description: 'Board has been cleared. Start a new game.',
-    });
-  };
-  
-  const handleDefectRecorded = (defect: any) => {
-    // Find if there's a matching cell with the same garment part and defect type
-    let foundMatch = false;
-    
-    board.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        if (cell.garmentPart?.code === defect.garmentPart.code && 
-            cell.defectType?.code === defect.defectType.code && 
-            !cell.marked) {
-          markCell(rowIndex, colIndex, playerName);
-          foundMatch = true;
-          
-          toast.success('Bingo cell marked!', {
-            description: `${defect.garmentPart.name} - ${defect.defectType.name} has been marked on your bingo board.`
-          });
-        }
-      });
-    });
-    
-    if (!foundMatch) {
-      toast.info('No matching cell found', {
-        description: 'This defect doesn\'t match any unmarked cells on your current bingo board.'
-      });
-    }
-  };
-  
-  const checkBoardStatus = (currentBoard: BoardType) => {
-    const hasCells = currentBoard.some(row => 
-      row.some(cell => cell.garmentPart && cell.defectType)
-    );
-    
-    if (hasCells && !startTime) {
-      setStartTime(new Date());
-      setIsActive(true);
-    }
-    
-    const bingos = checkForBingo(currentBoard);
-    const completionPercentage = calculateCompletion(currentBoard);
-    setCompletion(completionPercentage);
-    
-    if (bingos.length > 0 && bingoLines.length === 0) {
-      setStatus('bingo');
-      toast.success('BINGO!', {
-        description: "You've completed a line!",
-        icon: <Award className="h-5 w-5 text-yellow-500" />,
-      });
-      setIsActive(false);
-      
-      const gameResult = {
-        id: Date.now(),
-        playerName,
-        type: 'bingo',
-        time: elapsedTime,
-        date: new Date().toISOString(),
-        lines: bingos.length,
-        completion: completionPercentage
-      };
-      setGameHistory([gameResult, ...gameHistory]);
-    } else if (completionPercentage === 100) {
-      setStatus('fullBoard');
-      toast.success('FULL BOARD!', {
-        description: "You've marked every defect!",
-        icon: <Sparkles className="h-5 w-5 text-yellow-500" />,
-      });
-      setIsActive(false);
-      
-      const gameResult = {
-        id: Date.now(),
-        playerName,
-        type: 'fullBoard',
-        time: elapsedTime,
-        date: new Date().toISOString(),
-        lines: bingos.length,
-        completion: 100
-      };
-      setGameHistory([gameResult, ...gameHistory]);
-    }
-    
-    setBingoLines(bingos);
-  };
-  
+  // Handle cell click to open the modal
   const handleCellClick = (rowIndex: number, colIndex: number) => {
-    const cell = board[rowIndex][colIndex];
+    setSelectedCell({ rowIndex, colIndex });
+    setModalOpen(true);
+  };
+  
+  // Handle validating a defect
+  const handleValidateDefect = () => {
+    if (!selectedCell) return;
     
-    if (isMobile && (selectedDefect || selectedGarment)) {
-      // For mobile: if a defect or garment is selected, place it in the cell
-      if (selectedDefect) {
-        const defect = DEFECT_TYPES.find(d => d.code.toString() === selectedDefect);
-        if (defect) {
-          handleDragStart('defect', defect);
-          handleDrop(rowIndex, colIndex);
-          setSelectedDefect(null);
-          return;
-        }
-      }
+    const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
+    
+    if (success) {
+      toast.success("Defect validated!", {
+        description: "Cell marked as validated"
+      });
       
-      if (selectedGarment) {
-        const garment = GARMENT_PARTS.find(g => g.code === selectedGarment);
-        if (garment) {
-          handleDragStart('garment', garment);
-          handleDrop(rowIndex, colIndex);
-          setSelectedGarment(null);
-          return;
-        }
+      // Check for bingo
+      checkForBingo();
+      
+      // Update player stats
+      const currentPlayer = players.find(p => p.name === playerName);
+      if (currentPlayer) {
+        const updatedPlayers = players.map(p => {
+          if (p.name === playerName) {
+            return {
+              ...p,
+              score: p.score + 10,
+              defectsFound: p.defectsFound + 1
+            };
+          }
+          return p;
+        });
+        setPlayers(updatedPlayers);
+      } else {
+        // Create new player record if doesn't exist
+        setPlayers([
+          ...players,
+          {
+            id: crypto.randomUUID(),
+            name: playerName,
+            role: 'operator',
+            score: 10,
+            bingoCount: 0,
+            defectsFound: 1
+          }
+        ]);
+      }
+    } else {
+      toast.error("Cannot validate this cell", {
+        description: "Make sure cell has both garment part and defect type"
+      });
+    }
+    
+    setModalOpen(false);
+    setSelectedCell(null);
+  };
+  
+  // Check for bingo (horizontal, vertical, diagonal)
+  const checkForBingo = () => {
+    const completedLines = [];
+    
+    // Check horizontal lines
+    for (let i = 0; i < boardSize; i++) {
+      if (board[i].every(cell => cell.marked)) {
+        completedLines.push({ type: 'row', index: i });
       }
     }
     
-    // If cell has both parts, mark it
-    if (!cell.garmentPart || !cell.defectType) {
-      return;
+    // Check vertical lines
+    for (let j = 0; j < boardSize; j++) {
+      if (board.every(row => row[j].marked)) {
+        completedLines.push({ type: 'column', index: j });
+      }
     }
     
-    if (!startTime) {
-      setStartTime(new Date());
-      setIsActive(true);
+    // Check diagonals
+    const diag1 = [];
+    const diag2 = [];
+    for (let i = 0; i < boardSize; i++) {
+      diag1.push(board[i][i]);
+      diag2.push(board[i][boardSize - 1 - i]);
     }
     
-    const wasMarked = markCell(rowIndex, colIndex, playerName);
+    if (diag1.every(cell => cell.marked)) {
+      completedLines.push({ type: 'diagonal', index: 1 });
+    }
     
-    if (wasMarked) {
-      toast.success('Defect validated!', {
-        description: `${cell.garmentPart.name} - ${cell.defectType.name}`,
-        position: 'bottom-right',
+    if (diag2.every(cell => cell.marked)) {
+      completedLines.push({ type: 'diagonal', index: 2 });
+    }
+    
+    if (completedLines.length > bingoLines) {
+      // New bingo!
+      setBingoLines(completedLines.length);
+      
+      // Update player's bingo count
+      const updatedPlayers = players.map(p => {
+        if (p.name === playerName) {
+          return {
+            ...p,
+            bingoCount: p.bingoCount + (completedLines.length - bingoLines),
+            score: p.score + ((completedLines.length - bingoLines) * 50)
+          };
+        }
+        return p;
+      });
+      
+      setPlayers(updatedPlayers);
+      
+      toast.success("BINGO!", {
+        description: `You completed a ${completedLines[completedLines.length - 1].type}!`,
+        duration: 5000,
+        icon: <Sparkles className="h-5 w-5 text-yellow-400" />
       });
     }
   };
   
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-  
-  const isCellInBingoLine = (rowIndex: number, colIndex: number) => {
-    return bingoLines.some(line => {
-      if (line.startsWith('row-')) {
-        const row = parseInt(line.split('-')[1]);
-        return row === rowIndex;
-      }
-      if (line.startsWith('col-')) {
-        const col = parseInt(line.split('-')[1]);
-        return col === colIndex;
-      }
-      if (line === 'diag-1') {
-        return rowIndex === colIndex;
-      }
-      if (line === 'diag-2') {
-        return rowIndex === (boardSize - 1 - colIndex);
-      }
-      return false;
+  // Handle board reset
+  const handleReset = () => {
+    resetBoard();
+    setBingoLines(0);
+    toast.info("Bingo board reset", {
+      description: "You can start a new game"
     });
   };
-
-  const handleDefectSelect = (defectCode: string) => {
-    setSelectedDefect(defectCode === selectedDefect ? null : defectCode);
-    setSelectedGarment(null); // Deselect garment when selecting a defect
-  };
-
-  const handleGarmentSelect = (garmentCode: string) => {
-    setSelectedGarment(garmentCode === selectedGarment ? null : garmentCode);
-    setSelectedDefect(null); // Deselect defect when selecting a garment
-  };
-
+  
   return (
-    <div className="w-full max-w-6xl mx-auto animate-fade-in px-2 sm:px-4">
-      {showTutorial && (
-        <TutorialGuide onClose={() => setShowTutorial(false)} />
-      )}
-      
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-gradient">Jay Jay Defect Bingo</h2>
-          <p className="text-sm text-muted-foreground">
-            {isMobile ? "Tap to place defects and mark cells" : "Drag defects and garment parts to create a bingo pattern"}
-          </p>
+    <div className="w-full max-w-5xl mx-auto bg-card rounded-xl shadow-md overflow-hidden border">
+      <div className="bg-gradient-professional p-4 text-white">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xl font-bold">Defect Bingo Game</h3>
+          <Badge variant="outline" className="bg-white/10 text-white border-white/20">
+            <Trophy className="mr-1 h-3.5 w-3.5" />
+            {bingoLines} Lines Completed
+          </Badge>
         </div>
-        
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 glass-hover"
-            onClick={resetGame}
-          >
-            <RefreshCw className="mr-1 h-3.5 w-3.5" />
-            Reset
-          </Button>
+        <p className="text-sm text-blue-100">
+          Drag defects and garment parts to the board and match them with real defects you find
+        </p>
+      </div>
+      
+      <div className="p-4">
+        {/* Mobile-friendly tabs for defects and garment parts */}
+        <Tabs defaultValue="board" className="mb-6">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="board">Bingo Board</TabsTrigger>
+            <TabsTrigger value="defects">Defect Types</TabsTrigger>
+            <TabsTrigger value="garments">Garment Parts</TabsTrigger>
+          </TabsList>
           
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <TabsContent value="board" className="mt-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-white rounded-md shadow-sm border overflow-hidden">
+                <div className="grid grid-cols-5 gap-1 p-1">
+                  {board.map((row, rowIndex) => (
+                    row.map((cell, colIndex) => (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        className="aspect-square min-h-[48px] bg-white border rounded-md overflow-hidden relative"
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(rowIndex, colIndex)}
+                        onClick={() => handleCellClick(rowIndex, colIndex)}
+                      >
+                        <BingoCard
+                          cell={cell}
+                          size="sm"
+                        />
+                      </div>
+                    ))
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 glass-hover"
-                  onClick={() => setShowTutorial(true)}
+                  onClick={handleReset}
+                  className="flex items-center gap-1"
                 >
-                  <HelpCircle className="mr-1 h-3.5 w-3.5" />
-                  Tutorial
+                  <RefreshCcw className="h-4 w-4" />
+                  Reset Board
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Show step-by-step tutorial</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <Dialog open={showRecorder} onOpenChange={setShowRecorder}>
-            <DialogTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-8"
-              >
-                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                Record Defect
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Quick Defect Recorder</DialogTitle>
-                <DialogDescription>
-                  Record defects as you find them on the factory floor
-                </DialogDescription>
-              </DialogHeader>
-              <DefectRecorder onDefectRecorded={handleDefectRecorded} />
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-      
-      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
-          <span className="text-xs text-muted-foreground">Timer</span>
-          <div className="flex items-center">
-            <Timer className="mr-1 h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-lg">
-              {formatTime(elapsedTime)}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
-          <span className="text-xs text-muted-foreground">Status</span>
-          <div>
-            {status === 'none' && <Badge variant="outline">In Progress</Badge>}
-            {status === 'bingo' && <Badge variant="default" className="animate-pulse">Bingo!</Badge>}
-            {status === 'fullBoard' && <Badge variant="default" className="animate-pulse">Full Board!</Badge>}
-          </div>
-        </div>
-        
-        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
-          <span className="text-xs text-muted-foreground">Completion</span>
-          <div className="flex items-center gap-2">
-            <Progress value={completion} className="h-2" />
-            <span className="text-sm font-medium">{completion}%</span>
-          </div>
-        </div>
-        
-        <div className="flex flex-col space-y-1 rounded-lg border p-3 glass-card transition-all hover:shadow-md">
-          <span className="text-xs text-muted-foreground">Bingo Lines</span>
-          <div className="flex items-center">
-            <Rows className="mr-1 h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-lg">{bingoLines.length}</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Mobile Layout */}
-      {isMobile && (
-        <div className="flex flex-col gap-4 mb-4">
-          <div 
-            className="grid gap-1.5 sm:gap-2 border rounded-lg p-2 sm:p-4 glass-card"
-            style={{ 
-              gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-              gridTemplateRows: `repeat(${boardSize}, 1fr)`
-            }}
-          >
-            {board.map((row, rowIndex) =>
-              row.map((cell, colIndex) => (
-                <BingoCard
-                  key={cell.id}
-                  cell={cell}
-                  rowIndex={rowIndex}
-                  colIndex={colIndex}
-                  isHighlighted={false}
-                  isDragging={draggedItem !== null}
-                  isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
-                  onCellClick={handleCellClick}
-                  onDragOver={handleDragOver}
-                  onDrop={() => handleDrop(rowIndex, colIndex)}
-                />
-              ))
-            )}
-          </div>
-          
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="defects" className="border rounded-lg glass-card">
-              <AccordionTrigger className="px-4 py-3">
-                <div className="flex items-center">
-                  <h3 className="font-medium text-sm">Defect Types</h3>
-                  {selectedDefect && <Badge className="ml-2 bg-primary/20 text-primary">Selected: {selectedDefect}</Badge>}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-3 gap-2 p-2">
-                  {DEFECT_TYPES.map((defect) => (
-                    <div 
-                      key={defect.code}
-                      className={`p-2 rounded-md border text-center cursor-pointer transition-all
-                        ${selectedDefect === defect.code.toString() 
-                          ? 'border-primary bg-primary/10 shadow-md' 
-                          : 'border-red-200 bg-gradient-to-r from-red-50 to-red-100 hover:shadow-sm'}`}
-                      onClick={() => handleDefectSelect(defect.code.toString())}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center justify-center h-7 w-7 rounded-full text-white font-medium text-xs shadow-sm bg-gradient-to-br from-red-500 to-red-600">
-                          {defect.code}
-                        </div>
-                        <div className="text-xs font-medium truncate w-full">
-                          {defect.name}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="garments" className="border rounded-lg glass-card mt-2">
-              <AccordionTrigger className="px-4 py-3">
-                <div className="flex items-center">
-                  <h3 className="font-medium text-sm">Garment Parts</h3>
-                  {selectedGarment && <Badge className="ml-2 bg-primary/20 text-primary">Selected: {selectedGarment}</Badge>}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-3 gap-2 p-2">
-                  {GARMENT_PARTS.map((part) => (
-                    <div 
-                      key={part.code}
-                      className={`p-2 rounded-md border text-center cursor-pointer transition-all
-                        ${selectedGarment === part.code 
-                          ? 'border-primary bg-primary/10 shadow-md' 
-                          : 'border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100 hover:shadow-sm'}`}
-                      onClick={() => handleGarmentSelect(part.code)}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center justify-center h-7 w-7 rounded-full text-white font-medium text-xs shadow-sm bg-gradient-to-br from-blue-500 to-blue-600">
-                          {part.code}
-                        </div>
-                        <div className="text-xs font-medium truncate w-full">
-                          {part.name}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-          
-          {selectedDefect || selectedGarment ? (
-            <div className="p-3 rounded-lg border bg-amber-50 border-amber-200 text-center animate-pulse">
-              <p className="text-sm font-medium text-amber-800">
-                {selectedDefect ? 'Defect' : 'Garment'} selected! Tap on a grid cell to place it.
-              </p>
+              </div>
             </div>
-          ) : null}
-        </div>
-      )}
-      
-      {/* Desktop/Tablet Layout */}
-      {!isMobile && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-1/4 border rounded-lg p-2 glass-card">
-              <h3 className="font-medium text-sm mb-2 px-2">Defect Types</h3>
-              <ScrollArea className="h-[320px] md:h-[460px]">
-                <div className="flex flex-col gap-2 px-2">
-                  {DEFECT_TYPES.map((defect) => (
-                    <DraggableItem 
+          </TabsContent>
+          
+          <TabsContent value="defects" className="mt-4">
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 text-sm">Drag Defect Types to Board</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {DEFECT_TYPES.map(defect => (
+                    <DraggableItem
                       key={defect.code}
                       type="defect"
-                      item={defect}
-                      onDragStart={handleDragStart}
+                      data={defect}
+                      onDragStart={() => handleDragStart('defect', defect)}
+                      onDragEnd={handleDragEnd}
                     />
                   ))}
                 </div>
-              </ScrollArea>
-            </div>
-            
-            <div className="flex-1">
-              <div 
-                className="grid gap-1.5 sm:gap-2 border rounded-lg p-4 glass-card"
-                style={{ 
-                  gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
-                  gridTemplateRows: `repeat(${boardSize}, 1fr)`,
-                  minHeight: "320px",
-                  height: "100%"
-                }}
-              >
-                {board.map((row, rowIndex) =>
-                  row.map((cell, colIndex) => (
-                    <BingoCard
-                      key={cell.id}
-                      cell={cell}
-                      rowIndex={rowIndex}
-                      colIndex={colIndex}
-                      isHighlighted={false}
-                      isDragging={draggedItem !== null}
-                      isBingoLine={isCellInBingoLine(rowIndex, colIndex)}
-                      onCellClick={handleCellClick}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(rowIndex, colIndex)}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
-          <div className="border rounded-lg p-2 glass-card">
-            <h3 className="font-medium text-sm mb-2 px-2">Garment Parts</h3>
-            <ScrollArea className="w-full">
-              <div className="flex flex-wrap gap-2 p-2">
-                {GARMENT_PARTS.map((part) => (
-                  <div className="w-[calc(20%-8px)] sm:w-auto" key={part.code}>
-                    <DraggableItem 
+          <TabsContent value="garments" className="mt-4">
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 text-sm">Drag Garment Parts to Board</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {GARMENT_PARTS.map(part => (
+                    <DraggableItem
+                      key={part.code}
                       type="garment"
-                      item={part}
-                      onDragStart={handleDragStart}
+                      data={part}
+                      onDragStart={() => handleDragStart('garment', part)}
+                      onDragEnd={handleDragEnd}
                     />
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+        
+        {!isMobile && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 text-sm">Drag Defect Types to Board</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {DEFECT_TYPES.map(defect => (
+                    <DraggableItem
+                      key={defect.code}
+                      type="defect"
+                      data={defect}
+                      onDragStart={() => handleDragStart('defect', defect)}
+                      onDragEnd={handleDragEnd}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-3 text-sm">Drag Garment Parts to Board</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {GARMENT_PARTS.map(part => (
+                    <DraggableItem
+                      key={part.code}
+                      type="garment"
+                      data={part}
+                      onDragStart={() => handleDragStart('garment', part)}
+                      onDragEnd={handleDragEnd}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       
-      {status !== 'none' && (
-        <div className="mt-6 rounded-lg border bg-card p-4 text-center shadow-sm animate-scale-in glass-card">
-          <div className="flex flex-col items-center justify-center">
-            {status === 'bingo' && (
-              <>
-                <Award className="h-10 w-10 text-yellow-500 mb-2 animate-bounce" />
-                <h3 className="text-xl font-medium">BINGO!</h3>
-                <p className="text-muted-foreground">
-                  You've completed a line in {formatTime(elapsedTime)}
-                </p>
-              </>
-            )}
-            {status === 'fullBoard' && (
-              <>
-                <Sparkles className="h-10 w-10 text-yellow-500 mb-2 animate-pulse" />
-                <h3 className="text-xl font-medium">FULL BOARD COMPLETED!</h3>
-                <p className="text-muted-foreground">
-                  You've marked all defects in {formatTime(elapsedTime)}
-                </p>
-              </>
-            )}
-            <div className="flex gap-2 mt-3">
-              <Button variant="outline" onClick={resetGame}>
-                Play Again
-              </Button>
-              <Button onClick={() => setShowRecorder(true)}>
-                Record More Defects
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Defect validation modal */}
+      <DefectModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedCell(null);
+        }}
+        onValidate={handleValidateDefect}
+        cell={selectedCell ? board[selectedCell.rowIndex][selectedCell.colIndex] : null}
+      />
     </div>
   );
 };
