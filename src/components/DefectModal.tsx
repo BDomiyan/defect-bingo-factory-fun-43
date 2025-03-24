@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { GarmentPart, DefectType } from '@/lib/types';
+import { GarmentPart, DefectType, BingoCell } from '@/lib/types';
 import { toast } from 'sonner';
 
 interface DefectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  garmentPart: GarmentPart | null;
-  defectType: DefectType | null;
+  garmentPart?: GarmentPart | null;
+  defectType?: DefectType | null;
+  cell?: BingoCell | null;
   onValidate: (valid: boolean) => void;
 }
 
@@ -19,9 +20,14 @@ const DefectModal = ({
   onClose, 
   garmentPart, 
   defectType, 
+  cell,
   onValidate 
 }: DefectModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Use cell props if provided, otherwise use individual props
+  const actualGarmentPart = cell?.garmentPart || garmentPart;
+  const actualDefectType = cell?.defectType || defectType;
 
   const handleValidate = (isValid: boolean) => {
     setIsLoading(true);
@@ -45,7 +51,7 @@ const DefectModal = ({
     }, 800);
   };
 
-  if (!garmentPart || !defectType) return null;
+  if (!actualGarmentPart || !actualDefectType) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -61,14 +67,14 @@ const DefectModal = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg border bg-accent/50 p-3">
               <p className="text-xs text-muted-foreground">Garment Part</p>
-              <p className="font-medium">{garmentPart.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">Code: {garmentPart.code}</p>
+              <p className="font-medium">{actualGarmentPart.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">Code: {actualGarmentPart.code}</p>
             </div>
             
             <div className="rounded-lg border bg-accent/50 p-3">
               <p className="text-xs text-muted-foreground">Defect Type</p>
-              <p className="font-medium">{defectType.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">Code: {defectType.code}</p>
+              <p className="font-medium">{actualDefectType.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">Code: {actualDefectType.code}</p>
             </div>
           </div>
           

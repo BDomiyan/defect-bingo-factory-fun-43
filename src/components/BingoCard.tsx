@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BingoCell } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -12,8 +11,9 @@ interface BingoCardProps {
   isHighlighted?: boolean;
   isBingoLine?: boolean;
   isDragging?: boolean;
-  rowIndex: number;
-  colIndex: number;
+  rowIndex?: number;
+  colIndex?: number;
+  size?: string;
   onCellClick?: (rowIndex: number, colIndex: number) => void;
   onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDrop?: (rowIndex: number, colIndex: number) => void;
@@ -24,8 +24,9 @@ const BingoCard = ({
   isHighlighted, 
   isBingoLine, 
   isDragging,
-  rowIndex,
-  colIndex,
+  rowIndex = 0,
+  colIndex = 0,
+  size,
   onCellClick,
   onDragOver,
   onDrop

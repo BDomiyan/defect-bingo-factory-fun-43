@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -45,20 +45,95 @@ interface OperatorData {
   status: 'excellent' | 'good' | 'average' | 'poor';
 }
 
+interface RecordedDefect {
+  id: string;
+  defectType: any;
+  garmentPart: any;
+  timestamp: string;
+  operatorId: string;
+  operatorName: string;
+  factoryId: string;
+  lineNumber: string;
+  status: 'pending' | 'verified' | 'rejected';
+  reworked: boolean;
+  reworkTime?: number;
+}
+
 interface FactoryAnalyticsTableProps {
-  data: OperatorData[];
+  data?: OperatorData[];
+  defects?: RecordedDefect[];
   title?: string;
   description?: string;
 }
 
 const FactoryAnalyticsTable: React.FC<FactoryAnalyticsTableProps> = ({ 
-  data,
+  data = [],
+  defects = [],
   title = "Operator Performance Analytics",
   description = "Detailed metrics for quality performance by operator"
 }) => {
   const [sortField, setSortField] = useState<keyof OperatorData>('efficiency');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filter, setFilter] = useState('');
+  const [operatorData, setOperatorData] = useState<OperatorData[]>(data);
+  
+  // Process defects into operator data if defects are provided and no data is provided
+  useEffect(() => {
+    if (defects.length > 0 && data.length === 0) {
+      // Get unique operators from defects
+      const operatorsMap = new Map<string, {
+        id: string;
+        name: string;
+        defectsFound: number;
+        defectsFixed: number;
+        line: string;
+      }>();
+      
+      defects.forEach(defect => {
+        const opId = defect.operatorId;
+        if (!operatorsMap.has(opId)) {
+          operatorsMap.set(opId, {
+            id: opId,
+            name: defect.operatorName,
+            defectsFound: 0,
+            defectsFixed: 0,
+            line: defect.lineNumber
+          });
+        }
+        
+        const op = operatorsMap.get(opId)!;
+        op.defectsFound++;
+        
+        if (defect.reworked) {
+          op.defectsFixed++;
+        }
+      });
+      
+      // Convert map to array
+      const operators: OperatorData[] = Array.from(operatorsMap.values()).map(op => {
+        const reworkRate = op.defectsFound > 0 
+          ? Math.round((op.defectsFixed / op.defectsFound) * 100)
+          : 0;
+          
+        let status: 'excellent' | 'good' | 'average' | 'poor';
+        if (reworkRate >= 90) status = 'excellent';
+        else if (reworkRate >= 75) status = 'good';
+        else if (reworkRate >= 50) status = 'average';
+        else status = 'poor';
+        
+        return {
+          ...op,
+          department: 'QC',
+          role: 'Operator',
+          reworkRate,
+          efficiency: Math.min(100, 60 + reworkRate), // Simple formula for demo
+          status
+        };
+      });
+      
+      setOperatorData(operators);
+    }
+  }, [defects, data]);
   
   const handleSort = (field: keyof OperatorData) => {
     if (sortField === field) {
@@ -69,11 +144,11 @@ const FactoryAnalyticsTable: React.FC<FactoryAnalyticsTableProps> = ({
     }
   };
   
-  const filteredData = data.filter(operator => 
+  const filteredData = operatorData.filter(operator => 
     operator.name.toLowerCase().includes(filter.toLowerCase()) ||
     operator.line.toLowerCase().includes(filter.toLowerCase()) ||
-    operator.department.toLowerCase().includes(filter.toLowerCase()) ||
-    operator.role.toLowerCase().includes(filter.toLowerCase())
+    operator.department?.toLowerCase().includes(filter.toLowerCase()) ||
+    operator.role?.toLowerCase().includes(filter.toLowerCase())
   );
   
   const sortedData = [...filteredData].sort((a, b) => {

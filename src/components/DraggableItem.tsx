@@ -7,14 +7,17 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DraggableItemProps {
   type: 'defect' | 'garment';
-  item: GarmentPart | DefectType;
+  data?: GarmentPart | DefectType;
+  item?: GarmentPart | DefectType;
   onDragStart: (type: 'defect' | 'garment', item: GarmentPart | DefectType) => void;
+  onDragEnd?: () => void;
 }
 
-const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
+const DraggableItem = ({ type, item, data, onDragStart, onDragEnd }: DraggableItemProps) => {
   const isDefect = type === 'defect';
-  const defectItem = isDefect ? item as DefectType : null;
-  const garmentItem = !isDefect ? item as GarmentPart : null;
+  const itemToUse = item || data;
+  const defectItem = isDefect ? itemToUse as DefectType : null;
+  const garmentItem = !isDefect ? itemToUse as GarmentPart : null;
   const [isPressed, setIsPressed] = useState(false);
   const isMobile = useIsMobile();
   
@@ -29,7 +32,7 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
     e.dataTransfer.setDragImage(dragImage, 20, 20);
     
     // Call the provided onDragStart handler
-    onDragStart(type, item);
+    onDragStart(type, itemToUse!);
     
     // Clean up the drag image element after a short delay
     setTimeout(() => {
@@ -41,12 +44,15 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
     setIsPressed(true);
     // For mobile, we'll simulate drag start
     if (isMobile) {
-      onDragStart(type, item);
+      onDragStart(type, itemToUse!);
     }
   };
   
   const handleTouchEnd = () => {
     setIsPressed(false);
+    if (onDragEnd) {
+      onDragEnd();
+    }
   };
   
   return (
@@ -64,6 +70,7 @@ const DraggableItem = ({ type, item, onDragStart }: DraggableItemProps) => {
       onDragStart={handleDragStart}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onDragEnd={onDragEnd}
     >
       <DragHandleDots2Icon className="absolute right-1 top-1 w-3 h-3 text-muted-foreground opacity-40 group-hover:opacity-100" />
       <div className="flex items-center gap-2">
