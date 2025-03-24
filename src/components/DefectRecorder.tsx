@@ -18,6 +18,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { format } from 'date-fns';
+import { useDefectSync } from '@/hooks/use-defect-sync';
 
 interface RecordedDefect {
   id: string;
@@ -40,7 +41,7 @@ interface FactoryData {
 }
 
 interface DefectRecorderProps {
-  onDefectRecorded: (defect: RecordedDefect) => void;
+  onDefectRecorded?: (defect: RecordedDefect) => void;
   factoryList?: FactoryData[];
   operatorId?: string;
   operatorName?: string;
@@ -56,14 +57,14 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   operatorName = ''
 }) => {
   const { user } = useAuth();
+  const { addDefect, recentDefects } = useDefectSync();
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
-  const [factoryId, setFactoryId] = useState<string>(user?.plantId || '');
-  const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || '');
+  const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'f1');
+  const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || 'L1');
   const [operatorInput, setOperatorInput] = useState<string>(operatorName || user?.name || '');
   const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
   const [currentDate] = useState(new Date());
   
   // Use the plant from the logged-in user or fall back to the provided factoryList
@@ -126,12 +127,16 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         reworked: false
       };
       
-      // Add to recent defects
-      const updatedDefects = [newDefect, ...recentDefects.slice(0, 19)];
-      setRecentDefects(updatedDefects);
+      // Add to central defect system
+      addDefect(newDefect);
       
-      // Call the callback to update dashboard
-      onDefectRecorded(newDefect);
+      // Call the callback to update dashboard if provided
+      if (onDefectRecorded) {
+        onDefectRecorded(newDefect);
+      }
+      
+      // Update player stats
+      updatePlayerStats(newDefect);
       
       toast.success("Defect recorded successfully", {
         description: `${selectedGarmentPart.name} - ${selectedDefectType.name}`
@@ -140,6 +145,40 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       resetForm();
       setIsSubmitting(false);
     }, 500);
+  };
+  
+  // Update player stats when a defect is recorded
+  const updatePlayerStats = (defect: RecordedDefect) => {
+    const players = JSON.parse(localStorage.getItem('defect-bingo-players') || '[]');
+    const playerName = defect.operatorName;
+    
+    // Check if player exists
+    const playerExists = players.some((p: any) => p.name === playerName);
+    
+    if (playerExists) {
+      const updatedPlayers = players.map((p: any) => {
+        if (p.name === playerName) {
+          return {
+            ...p,
+            defectsFound: p.defectsFound + 1,
+            score: p.score + 5
+          };
+        }
+        return p;
+      });
+      localStorage.setItem('defect-bingo-players', JSON.stringify(updatedPlayers));
+    } else {
+      // Create new player
+      const newPlayer = {
+        id: defect.operatorId || crypto.randomUUID(),
+        name: playerName,
+        role: 'operator',
+        score: 5,
+        bingoCount: 0,
+        defectsFound: 1
+      };
+      localStorage.setItem('defect-bingo-players', JSON.stringify([...players, newPlayer]));
+    }
   };
 
   return (

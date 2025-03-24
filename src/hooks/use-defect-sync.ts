@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocalStorage } from './use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
 
@@ -23,6 +23,11 @@ interface RecordedDefect {
  */
 export const useDefectSync = () => {
   const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
+  
+  // Update dashboard data whenever defects change
+  useEffect(() => {
+    updateDashboardData();
+  }, [recentDefects]);
   
   // Function to add a new defect
   const addDefect = (defect: RecordedDefect) => {
@@ -48,6 +53,71 @@ export const useDefectSync = () => {
     setRecentDefects(updatedDefects);
   };
   
+  // Function to update dashboard data in localStorage
+  const updateDashboardData = () => {
+    // Update line chart data
+    const lineData = JSON.parse(localStorage.getItem('defect-bingo-line-data') || '[]');
+    if (lineData.length > 0) {
+      const today = new Date().getDay();
+      const dayIndex = today === 0 ? 6 : today - 1; // Convert to 0-6 (Mon-Sun)
+      lineData[dayIndex].count = recentDefects.length;
+      localStorage.setItem('defect-bingo-line-data', JSON.stringify(lineData));
+    }
+    
+    // Update bar chart data for garment parts
+    if (recentDefects.length > 0) {
+      const barData = JSON.parse(localStorage.getItem('defect-bingo-bar-data') || '[]');
+      if (barData.length > 0) {
+        // Count defects by garment part
+        const partCounts: Record<string, number> = {};
+        recentDefects.forEach(defect => {
+          const partName = defect.garmentPart.name;
+          partCounts[partName] = (partCounts[partName] || 0) + 1;
+        });
+        
+        // Update bar data with new counts
+        barData.forEach((item: any, index: number) => {
+          const matchingPart = Object.keys(partCounts).find(part => 
+            item.name.toLowerCase().includes(part.toLowerCase())
+          );
+          if (matchingPart) {
+            barData[index].count = partCounts[matchingPart];
+          }
+        });
+        
+        localStorage.setItem('defect-bingo-bar-data', JSON.stringify(barData));
+      }
+      
+      // Update pie chart data for defect types
+      const pieData = JSON.parse(localStorage.getItem('defect-bingo-pie-data') || '[]');
+      if (pieData.length > 0) {
+        // Count defects by type
+        const typeCounts: Record<string, number> = {};
+        recentDefects.forEach(defect => {
+          const typeName = defect.defectType.name;
+          typeCounts[typeName] = (typeCounts[typeName] || 0) + 1;
+        });
+        
+        // Update pie data with new counts
+        pieData.forEach((item: any, index: number) => {
+          const matchingType = Object.keys(typeCounts).find(type => 
+            item.name.toLowerCase().includes(type.toLowerCase())
+          );
+          if (matchingType) {
+            pieData[index].value = typeCounts[matchingType];
+          }
+        });
+        
+        localStorage.setItem('defect-bingo-pie-data', JSON.stringify(pieData));
+      }
+      
+      // Update defect rate
+      const randomFactor = Math.random() * 0.5 + 0.8; // Random factor between 0.8 and 1.3
+      const newDefectRate = Math.min(5, Math.max(1, (recentDefects.length / 40) * randomFactor));
+      localStorage.setItem('defect-rate', newDefectRate.toString());
+    }
+  };
+  
   // Group defects by factory
   const defectsByFactory = recentDefects.reduce((acc, defect) => {
     const factory = acc.find(f => f.id === defect.factoryId);
@@ -62,6 +132,23 @@ export const useDefectSync = () => {
     }
     return acc;
   }, [] as Array<{id: string, name: string, defects: RecordedDefect[]}>);
+  
+  // Group defects by production line
+  const defectsByLine = recentDefects.reduce((acc, defect) => {
+    const lineKey = `${defect.factoryId}-${defect.lineNumber}`;
+    const line = acc.find(l => l.id === lineKey);
+    if (line) {
+      line.defects.push(defect);
+    } else {
+      acc.push({
+        id: lineKey,
+        factoryId: defect.factoryId,
+        lineNumber: defect.lineNumber,
+        defects: [defect],
+      });
+    }
+    return acc;
+  }, [] as Array<{id: string, factoryId: string, lineNumber: string, defects: RecordedDefect[]}>);
   
   // Calculate important metrics
   const totalDefects = recentDefects.length;
@@ -120,11 +207,13 @@ export const useDefectSync = () => {
     updateDefectStatus,
     markAsReworked,
     defectsByFactory,
+    defectsByLine,
     totalDefects,
     verifiedDefects,
     rejectedDefects,
     reworkedDefects,
     getTopDefectType,
-    getTopGarmentPart
+    getTopGarmentPart,
+    updateDashboardData
   };
 };

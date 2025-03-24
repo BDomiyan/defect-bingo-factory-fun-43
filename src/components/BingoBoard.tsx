@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
-import DraggableItem from '@/components/DraggableItem';
 import DefectModal from '@/components/DefectModal';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
 import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Trophy, RefreshCcw, Plus } from 'lucide-react';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Player, GarmentPart, DefectType } from '@/lib/types';
+import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType } from '@/lib/types';
+import { useDefectSync } from '@/hooks/use-defect-sync';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -27,7 +28,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', []);
   const [bingoLines, setBingoLines] = useState<number>(0);
+  const [completedLines, setCompletedLines] = useState<Array<{type: string, index: number}>>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const { addDefect } = useDefectSync();
   
   // Initialize the drag and drop grid
   const { 
@@ -86,37 +89,28 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         description: "Cell marked as validated"
       });
       
+      // Record the defect in the central system
+      const defectRecord = {
+        id: crypto.randomUUID(),
+        defectType: defectType,
+        garmentPart: garmentPart,
+        timestamp: new Date().toISOString(),
+        operatorId: crypto.randomUUID(),
+        operatorName: playerName,
+        factoryId: 'f1', // Default factory
+        lineNumber: 'L1', // Default line
+        status: 'verified' as const,
+        reworked: false
+      };
+      
+      // Add defect to the central system
+      addDefect(defectRecord);
+      
       // Check for bingo
-      checkForBingo();
+      const newCompletedLines = checkForBingo();
       
       // Update player stats
-      const currentPlayer = players.find(p => p.name === playerName);
-      if (currentPlayer) {
-        const updatedPlayers = players.map(p => {
-          if (p.name === playerName) {
-            return {
-              ...p,
-              score: p.score + 10,
-              defectsFound: p.defectsFound + 1
-            };
-          }
-          return p;
-        });
-        setPlayers(updatedPlayers);
-      } else {
-        // Create new player record if doesn't exist
-        setPlayers([
-          ...players,
-          {
-            id: crypto.randomUUID(),
-            name: playerName,
-            role: 'operator',
-            score: 10,
-            bingoCount: 0,
-            defectsFound: 1
-          }
-        ]);
-      }
+      updatePlayerStats(newCompletedLines.length - completedLines.length);
       
       // Find next empty cell and automatically select it after a short delay
       setTimeout(() => {
@@ -136,21 +130,62 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     setSelectedCell(null);
   };
   
+  // Update player stats based on new bingos
+  const updatePlayerStats = (newBingos: number) => {
+    if (newBingos <= 0) return;
+    
+    const currentPlayer = players.find(p => p.name === playerName);
+    if (currentPlayer) {
+      const updatedPlayers = players.map(p => {
+        if (p.name === playerName) {
+          return {
+            ...p,
+            score: p.score + 10 + (newBingos * 50),
+            defectsFound: p.defectsFound + 1,
+            bingoCount: p.bingoCount + newBingos
+          };
+        }
+        return p;
+      });
+      setPlayers(updatedPlayers);
+    } else {
+      // Create new player record if doesn't exist
+      setPlayers([
+        ...players,
+        {
+          id: crypto.randomUUID(),
+          name: playerName,
+          role: 'operator',
+          score: 10 + (newBingos * 50),
+          bingoCount: newBingos,
+          defectsFound: 1
+        }
+      ]);
+    }
+  };
+  
   // Check for bingo (horizontal, vertical, diagonal)
   const checkForBingo = () => {
-    const completedLines = [];
+    const newCompletedLines = [];
     
     // Check horizontal lines
     for (let i = 0; i < boardSize; i++) {
       if (board[i].every(cell => cell.marked)) {
-        completedLines.push({ type: 'row', index: i });
+        const lineObj = { type: 'row', index: i };
+        // Check if this line is already in completedLines
+        if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
+          newCompletedLines.push(lineObj);
+        }
       }
     }
     
     // Check vertical lines
     for (let j = 0; j < boardSize; j++) {
       if (board.every(row => row[j].marked)) {
-        completedLines.push({ type: 'column', index: j });
+        const lineObj = { type: 'column', index: j };
+        if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
+          newCompletedLines.push(lineObj);
+        }
       }
     }
     
@@ -163,43 +198,57 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     }
     
     if (diag1.every(cell => cell.marked)) {
-      completedLines.push({ type: 'diagonal', index: 1 });
+      const lineObj = { type: 'diagonal', index: 1 };
+      if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
+        newCompletedLines.push(lineObj);
+      }
     }
     
     if (diag2.every(cell => cell.marked)) {
-      completedLines.push({ type: 'diagonal', index: 2 });
+      const lineObj = { type: 'diagonal', index: 2 };
+      if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
+        newCompletedLines.push(lineObj);
+      }
     }
     
-    if (completedLines.length > bingoLines) {
-      // New bingo!
-      setBingoLines(completedLines.length);
+    // If we found new completed lines
+    if (newCompletedLines.length > 0) {
+      // Combine old and new completed lines
+      const allCompletedLines = [...completedLines, ...newCompletedLines];
+      setCompletedLines(allCompletedLines);
+      setBingoLines(allCompletedLines.length);
       
-      // Update player's bingo count
-      const updatedPlayers = players.map(p => {
-        if (p.name === playerName) {
-          return {
-            ...p,
-            bingoCount: p.bingoCount + (completedLines.length - bingoLines),
-            score: p.score + ((completedLines.length - bingoLines) * 50)
-          };
-        }
-        return p;
+      // Show toast for each new bingo
+      newCompletedLines.forEach(line => {
+        toast.success("BINGO!", {
+          description: `You completed a ${line.type === 'row' ? 'horizontal' : line.type === 'column' ? 'vertical' : 'diagonal'} line!`,
+          duration: 5000,
+          icon: <Sparkles className="h-5 w-5 text-yellow-400" />
+        });
       });
       
-      setPlayers(updatedPlayers);
-      
-      toast.success("BINGO!", {
-        description: `You completed a ${completedLines[completedLines.length - 1].type}!`,
-        duration: 5000,
-        icon: <Sparkles className="h-5 w-5 text-yellow-400" />
-      });
+      // Check for full board bingo
+      const allCellsMarked = board.every(row => row.every(cell => cell.marked));
+      if (allCellsMarked) {
+        toast.success("FULL BOARD BINGO!", {
+          description: "You've completed the entire board!",
+          duration: 8000,
+          icon: <Trophy className="h-5 w-5 text-yellow-400" />
+        });
+        
+        // Add extra points for full board
+        updatePlayerStats(1);
+      }
     }
+    
+    return [...completedLines, ...newCompletedLines];
   };
   
   // Handle board reset
   const handleReset = () => {
     resetBoard();
     setBingoLines(0);
+    setCompletedLines([]);
     toast.info("Bingo board reset", {
       description: "You can start a new game"
     });
@@ -272,6 +321,12 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
                         <BingoCard
                           cell={cell}
                           size="sm"
+                          isBingoLine={completedLines.some(line => 
+                            (line.type === 'row' && line.index === rowIndex) ||
+                            (line.type === 'column' && line.index === colIndex) ||
+                            (line.type === 'diagonal' && line.index === 1 && rowIndex === colIndex) ||
+                            (line.type === 'diagonal' && line.index === 2 && rowIndex === (boardSize - 1 - colIndex))
+                          )}
                         />
                         {(!cell.garmentPart || !cell.defectType) && (
                           <div className="absolute inset-0 flex items-center justify-center bg-background/5 hover:bg-background/10 transition-colors cursor-pointer">

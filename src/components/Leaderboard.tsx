@@ -7,7 +7,9 @@ import {
   Search, 
   Shield, 
   Users, 
-  Award
+  Award,
+  Factory,
+  Layers
 } from 'lucide-react';
 import { 
   Table, 
@@ -22,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Player, Award as AwardType } from '@/lib/types';
+import { useDefectSync } from '@/hooks/use-defect-sync';
 import { toast } from 'sonner';
 
 const defaultPlayers: Player[] = [
@@ -70,6 +73,41 @@ const Leaderboard = () => {
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', defaultPlayers);
   const [awards, setAwards] = useLocalStorage<AwardType[]>('defect-bingo-awards', defaultAwards);
+  const [activeTab, setActiveTab] = useState<'players' | 'plants' | 'lines'>('players');
+  
+  // Get defect data
+  const { defectsByFactory, defectsByLine, recentDefects } = useDefectSync();
+  
+  // Update awards when players change
+  useEffect(() => {
+    updateAwards();
+  }, [players]);
+  
+  // Function to update awards based on player performance
+  const updateAwards = () => {
+    if (players.length <= 1) return;
+    
+    const sortedByScore = [...players].sort((a, b) => b.score - a.score);
+    const sortedByDefects = [...players].sort((a, b) => b.defectsFound - a.defectsFound);
+    
+    const updatedAwards = awards.map(award => {
+      if (award.id === 'lightning-spotter' && sortedByScore[0]?.name) {
+        return { ...award, recipients: [sortedByScore[0].name] };
+      } 
+      else if (award.id === 'eagle-eye' && sortedByScore[1]?.name) {
+        return { ...award, recipients: [sortedByScore[1].name] };
+      } 
+      else if (award.id === 'master-detective' && sortedByScore[2]?.name) {
+        return { ...award, recipients: [sortedByScore[2].name] };
+      } 
+      else if (award.id === 'guardian-of-quality' && sortedByDefects[0]?.name) {
+        return { ...award, recipients: [sortedByDefects[0].name] };
+      }
+      return award;
+    });
+    
+    setAwards(updatedAwards);
+  };
   
   // Function to add demo data for presentation purposes
   const addDemoPlayers = () => {
@@ -159,6 +197,12 @@ const Leaderboard = () => {
   // Sort players by score
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   
+  // Sort factories by defect count
+  const sortedFactories = [...defectsByFactory].sort((a, b) => b.defects.length - a.defects.length);
+  
+  // Sort lines by defect count
+  const sortedLines = [...defectsByLine].sort((a, b) => b.defects.length - a.defects.length);
+  
   // Helper function to get the icon component based on award icon name
   const getAwardIcon = (iconName: string) => {
     switch (iconName) {
@@ -207,85 +251,232 @@ const Leaderboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b">
           <div className="flex items-center space-x-2">
             <Trophy className="h-5 w-5 text-yellow-500" />
-            <h3 className="font-medium">Top Players</h3>
+            <h3 className="font-medium">Rankings</h3>
           </div>
           
-          <Tabs 
-            defaultValue="weekly" 
-            className="w-full sm:w-auto mt-4 sm:mt-0"
-            onValueChange={(value) => setTimeframe(value as any)}
-          >
-            <TabsList className="grid w-full grid-cols-3 sm:w-[300px]">
-              <TabsTrigger value="daily">Daily</TabsTrigger>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Tabs 
+              value={activeTab} 
+              onValueChange={(value) => setActiveTab(value as any)}
+              className="w-full sm:w-auto mt-4 sm:mt-0"
+            >
+              <TabsList className="grid w-full grid-cols-3 sm:w-[300px]">
+                <TabsTrigger value="players">Players</TabsTrigger>
+                <TabsTrigger value="plants">Plants</TabsTrigger>
+                <TabsTrigger value="lines">Lines</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            <Tabs 
+              defaultValue="weekly" 
+              className="w-full sm:w-auto mt-2 sm:mt-0"
+              onValueChange={(value) => setTimeframe(value as any)}
+            >
+              <TabsList className="grid w-full grid-cols-3 sm:w-[200px]">
+                <TabsTrigger value="daily">Daily</TabsTrigger>
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
         
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[60px]">Rank</TableHead>
-              <TableHead>Player</TableHead>
-              <TableHead className="text-center">Defects Found</TableHead>
-              <TableHead className="text-center">Bingo Count</TableHead>
-              <TableHead className="text-right">Score</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedPlayers.length === 0 ? (
+        <TabsContent value="players" className="mt-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No players yet. Start playing to see rankings!
-                </TableCell>
+                <TableHead className="w-[60px]">Rank</TableHead>
+                <TableHead>Player</TableHead>
+                <TableHead className="text-center">Defects Found</TableHead>
+                <TableHead className="text-center">Bingo Count</TableHead>
+                <TableHead className="text-right">Score</TableHead>
               </TableRow>
-            ) : (
-              sortedPlayers.map((player, index) => (
-                <TableRow 
-                  key={player.id}
-                  className={cn(
-                    index < 3 ? "bg-accent/30" : ""
-                  )}
-                >
-                  <TableCell className="font-medium flex items-center justify-center py-3">
-                    {index === 0 && (
-                      <div className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
-                        <Trophy className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                    {index === 1 && (
-                      <div className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700">
-                        <Trophy className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                    {index === 2 && (
-                      <div className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                        <Trophy className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                    {index > 2 && (
-                      <span className="font-normal text-muted-foreground">{index + 1}</span>
-                    )}
+            </TableHeader>
+            <TableBody>
+              {sortedPlayers.length === 0 || (sortedPlayers.length === 1 && sortedPlayers[0].score === 0) ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No players yet. Start playing to see rankings!
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{player.name}</span>
-                      {player.role === 'supervisor' && (
-                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm">
-                          Supervisor
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">{player.defectsFound}</TableCell>
-                  <TableCell className="text-center">{player.bingoCount}</TableCell>
-                  <TableCell className="text-right font-medium">{player.score}</TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                sortedPlayers.map((player, index) => (
+                  <TableRow 
+                    key={player.id}
+                    className={cn(
+                      index < 3 ? "bg-accent/30" : ""
+                    )}
+                  >
+                    <TableCell className="font-medium flex items-center justify-center py-3">
+                      {index === 0 && (
+                        <div className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                          <Trophy className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+                      {index === 1 && (
+                        <div className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                          <Trophy className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+                      {index === 2 && (
+                        <div className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                          <Trophy className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+                      {index > 2 && (
+                        <span className="font-normal text-muted-foreground">{index + 1}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{player.name}</span>
+                        {player.role === 'supervisor' && (
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-sm">
+                            Supervisor
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">{player.defectsFound}</TableCell>
+                    <TableCell className="text-center">{player.bingoCount}</TableCell>
+                    <TableCell className="text-right font-medium">{player.score}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TabsContent>
+          
+        <TabsContent value="plants" className="mt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[60px]">Rank</TableHead>
+                <TableHead>Plant</TableHead>
+                <TableHead className="text-center">Defects Found</TableHead>
+                <TableHead className="text-center">Affected Lines</TableHead>
+                <TableHead className="text-right">Quality Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedFactories.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No plant data yet. Record defects to see plant rankings!
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedFactories.map((factory, index) => {
+                  const uniqueLines = new Set(factory.defects.map(d => d.lineNumber)).size;
+                  const qualityScore = 100 - Math.min(80, factory.defects.length * 2);
+                  
+                  return (
+                    <TableRow 
+                      key={factory.id}
+                      className={cn(
+                        index < 3 ? "bg-accent/30" : ""
+                      )}
+                    >
+                      <TableCell className="font-medium flex items-center justify-center py-3">
+                        {index === 0 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                            <Factory className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index === 1 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                            <Factory className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index === 2 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                            <Factory className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index > 2 && (
+                          <span className="font-normal text-muted-foreground">{index + 1}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{factory.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{factory.defects.length}</TableCell>
+                      <TableCell className="text-center">{uniqueLines}</TableCell>
+                      <TableCell className="text-right font-medium">{qualityScore}%</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TabsContent>
+          
+        <TabsContent value="lines" className="mt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[60px]">Rank</TableHead>
+                <TableHead>Production Line</TableHead>
+                <TableHead>Plant</TableHead>
+                <TableHead className="text-center">Defects Found</TableHead>
+                <TableHead className="text-right">Quality Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedLines.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No line data yet. Record defects to see line rankings!
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedLines.map((line, index) => {
+                  const qualityScore = 100 - Math.min(80, line.defects.length * 3);
+                  
+                  return (
+                    <TableRow 
+                      key={line.id}
+                      className={cn(
+                        index < 3 ? "bg-accent/30" : ""
+                      )}
+                    >
+                      <TableCell className="font-medium flex items-center justify-center py-3">
+                        {index === 0 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                            <Layers className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index === 1 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                            <Layers className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index === 2 && (
+                          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                            <Layers className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        {index > 2 && (
+                          <span className="font-normal text-muted-foreground">{index + 1}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Line {line.lineNumber}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>Factory {line.factoryId}</TableCell>
+                      <TableCell className="text-center">{line.defects.length}</TableCell>
+                      <TableCell className="text-right font-medium">{qualityScore}%</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TabsContent>
       </div>
 
       {/* Awards section */}
