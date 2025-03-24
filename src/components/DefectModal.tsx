@@ -2,114 +2,166 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { GarmentPart, DefectType, BingoCell } from '@/lib/types';
 import { toast } from 'sonner';
+import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
 
 interface DefectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  garmentPart?: GarmentPart | null;
-  defectType?: DefectType | null;
   cell?: BingoCell | null;
-  onValidate: (valid: boolean) => void;
+  onValidate: (garmentPart: GarmentPart | null, defectType: DefectType | null, valid: boolean) => void;
 }
 
 const DefectModal = ({ 
   isOpen, 
   onClose, 
-  garmentPart, 
-  defectType, 
   cell,
   onValidate 
 }: DefectModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('garment');
+  const [selectedGarmentPart, setSelectedGarmentPart] = useState<GarmentPart | null>(cell?.garmentPart || null);
+  const [selectedDefectType, setSelectedDefectType] = useState<DefectType | null>(cell?.defectType || null);
   
-  // Use cell props if provided, otherwise use individual props
-  const actualGarmentPart = cell?.garmentPart || garmentPart;
-  const actualDefectType = cell?.defectType || defectType;
+  // Reset selections when modal opens with new cell
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelectedGarmentPart(cell?.garmentPart || null);
+      setSelectedDefectType(cell?.defectType || null);
+      setActiveTab('garment');
+    }
+  }, [isOpen, cell]);
 
-  const handleValidate = (isValid: boolean) => {
+  const handleValidate = () => {
+    if (!selectedGarmentPart || !selectedDefectType) {
+      toast.error('Please select both garment part and defect type');
+      return;
+    }
+    
     setIsLoading(true);
     
     // Simulate validation delay
     setTimeout(() => {
-      onValidate(isValid);
+      onValidate(selectedGarmentPart, selectedDefectType, true);
       setIsLoading(false);
       
-      if (isValid) {
-        toast.success('Defect validated!', {
-          description: 'You earned points for this detection',
-        });
-      } else {
-        toast.error('Validation failed', {
-          description: 'This defect was not confirmed',
-        });
-      }
+      toast.success('Defect validated!', {
+        description: 'You earned points for this detection',
+      });
       
       onClose();
     }, 800);
   };
 
-  if (!actualGarmentPart || !actualDefectType) return null;
+  const handleGarmentPartSelect = (part: GarmentPart) => {
+    setSelectedGarmentPart(part);
+    setActiveTab('defect');
+  };
+
+  const handleDefectTypeSelect = (defect: DefectType) => {
+    setSelectedDefectType(defect);
+  };
+
+  const canProceed = selectedGarmentPart && selectedDefectType;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Validate Defect</DialogTitle>
+          <DialogTitle>Select Defect</DialogTitle>
           <DialogDescription>
-            Confirm that this defect has been correctly identified before marking it.
+            Choose the garment part and defect type for this cell.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border bg-accent/50 p-3">
-              <p className="text-xs text-muted-foreground">Garment Part</p>
-              <p className="font-medium">{actualGarmentPart.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">Code: {actualGarmentPart.code}</p>
-            </div>
-            
-            <div className="rounded-lg border bg-accent/50 p-3">
-              <p className="text-xs text-muted-foreground">Defect Type</p>
-              <p className="font-medium">{actualDefectType.name}</p>
-              <p className="text-xs text-muted-foreground mt-1">Code: {actualDefectType.code}</p>
-            </div>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="garment">Garment Part</TabsTrigger>
+            <TabsTrigger value="defect">Defect Type</TabsTrigger>
+          </TabsList>
           
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground mb-2">Validation Criteria</p>
-            <ul className="space-y-1 text-sm">
-              <li className="flex items-start">
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5" />
-                <span>Defect must be visible and match the specified type</span>
-              </li>
-              <li className="flex items-start">
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5" />
-                <span>Location must match the specified garment part</span>
-              </li>
-              <li className="flex items-start">
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5" />
-                <span>Defect must affect product quality or appearance</span>
-              </li>
-            </ul>
+          <TabsContent value="garment" className="mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto p-1">
+              {GARMENT_PARTS.map((part) => (
+                <div
+                  key={part.code}
+                  className={`p-2 border rounded-md cursor-pointer transition-all ${
+                    selectedGarmentPart?.code === part.code 
+                      ? 'bg-primary/20 border-primary' 
+                      : 'hover:bg-accent'
+                  }`}
+                  onClick={() => handleGarmentPartSelect(part)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-primary font-medium text-xs">
+                      {part.code}
+                    </div>
+                    <span className="text-sm">{part.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="defect" className="mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto p-1">
+              {DEFECT_TYPES.map((defect) => (
+                <div
+                  key={defect.code}
+                  className={`p-2 border rounded-md cursor-pointer transition-all ${
+                    selectedDefectType?.code === defect.code 
+                      ? 'bg-primary/20 border-primary' 
+                      : 'hover:bg-accent'
+                  }`}
+                  onClick={() => handleDefectTypeSelect(defect)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-primary font-medium text-xs">
+                      {defect.code}
+                    </div>
+                    <span className="text-sm">{defect.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        <div className="mt-4">
+          <h4 className="text-sm font-medium mb-2">Selected Items:</h4>
+          <div className="flex flex-wrap gap-2">
+            {selectedGarmentPart && (
+              <div className="bg-accent rounded-md py-1 px-2 text-xs flex items-center gap-1">
+                <span className="font-medium">{selectedGarmentPart.code}:</span> 
+                <span>{selectedGarmentPart.name}</span>
+              </div>
+            )}
+            
+            {selectedDefectType && (
+              <div className="bg-accent rounded-md py-1 px-2 text-xs flex items-center gap-1">
+                <span className="font-medium">{selectedDefectType.code}:</span> 
+                <span>{selectedDefectType.name}</span>
+              </div>
+            )}
           </div>
         </div>
         
-        <DialogFooter className="flex flex-row justify-end gap-2">
+        <DialogFooter className="flex flex-row justify-end gap-2 mt-4">
           <Button
             variant="outline"
-            onClick={() => handleValidate(false)}
+            onClick={onClose}
             disabled={isLoading}
             className="gap-1"
           >
             <XCircle className="h-4 w-4 text-destructive" />
-            Reject
+            Cancel
           </Button>
           <Button
-            onClick={() => handleValidate(true)}
-            disabled={isLoading}
+            onClick={handleValidate}
+            disabled={isLoading || !canProceed}
             className="gap-1"
           >
             <CheckCircle className="h-4 w-4" />

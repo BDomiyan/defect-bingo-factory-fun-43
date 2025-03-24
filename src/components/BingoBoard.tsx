@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
 import DraggableItem from '@/components/DraggableItem';
@@ -9,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Trophy, RefreshCcw } from 'lucide-react';
+import { Sparkles, Trophy, RefreshCcw, Plus } from 'lucide-react';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Player } from '@/lib/types';
+import { Player, GarmentPart, DefectType } from '@/lib/types';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -23,7 +22,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   boardSize = 5,
   playerName = "Guest Player"
 }) => {
-  const [activeTab, setActiveTab] = useState("defects");
+  const [activeTab, setActiveTab] = useState("board");
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', []);
@@ -39,7 +38,8 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     handleDrop,
     handleDragEnd,
     markCell,
-    resetBoard
+    resetBoard,
+    addDefectToCell
   } = useDragDropGrid({ boardSize });
   
   // Update isMobile state when window is resized
@@ -58,10 +58,27 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     setModalOpen(true);
   };
   
+  // Find the next empty cell
+  const findNextEmptyCell = () => {
+    for (let i = 0; i < boardSize; i++) {
+      for (let j = 0; j < boardSize; j++) {
+        const cell = board[i][j];
+        if (!cell.garmentPart || !cell.defectType) {
+          return { rowIndex: i, colIndex: j };
+        }
+      }
+    }
+    return null;
+  };
+  
   // Handle validating a defect
-  const handleValidateDefect = () => {
-    if (!selectedCell) return;
+  const handleValidateDefect = (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
+    if (!selectedCell || !isValid || !garmentPart || !defectType) return;
     
+    // Add the selected defect and garment part to the cell
+    addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
+    
+    // Mark the cell as validated
     const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
     
     if (success) {
@@ -100,9 +117,18 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           }
         ]);
       }
+      
+      // Find next empty cell and automatically select it after a short delay
+      setTimeout(() => {
+        const nextCell = findNextEmptyCell();
+        if (nextCell) {
+          setSelectedCell(nextCell);
+          setModalOpen(true);
+        }
+      }, 1000);
     } else {
       toast.error("Cannot validate this cell", {
-        description: "Make sure cell has both garment part and defect type"
+        description: "There was an error validating the defect"
       });
     }
     
@@ -190,43 +216,39 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           </Badge>
         </div>
         <p className="text-sm text-blue-100">
-          Drag defects and garment parts to the board and match them with real defects you find
+          Tap on any cell with a + sign to add a defect. Complete lines to win!
         </p>
       </div>
       
       <div className="p-4">
-        {/* Mobile-friendly tabs for defects and garment parts */}
-        <Tabs defaultValue="board" className="mb-6">
-          <TabsList className="w-full grid grid-cols-3">
+        <Tabs defaultValue="board" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="w-full grid grid-cols-1">
             <TabsTrigger value="board">Bingo Board</TabsTrigger>
-            <TabsTrigger value="defects">Defect Types</TabsTrigger>
-            <TabsTrigger value="garments">Garment Parts</TabsTrigger>
           </TabsList>
           
           <TabsContent value="board" className="mt-4">
             <div className="grid grid-cols-1 gap-4">
-              <div className="bg-white rounded-md shadow-sm border overflow-hidden">
-                <div className="grid grid-cols-5 gap-1 p-1">
-                  {board.map((row, rowIndex) => (
-                    row.map((cell, colIndex) => (
-                      <div
-                        key={`${rowIndex}-${colIndex}`}
-                        className="aspect-square min-h-[48px] bg-white border rounded-md overflow-hidden relative"
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(rowIndex, colIndex)}
-                        onClick={() => handleCellClick(rowIndex, colIndex)}
-                      >
-                        <BingoCard
-                          cell={cell}
-                          size="sm"
-                        />
-                      </div>
-                    ))
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center mb-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    const nextCell = findNextEmptyCell();
+                    if (nextCell) {
+                      setSelectedCell(nextCell);
+                      setModalOpen(true);
+                    } else {
+                      toast.info("All cells are filled", {
+                        description: "Reset the board to start a new game"
+                      });
+                    }
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Defect
+                </Button>
+                
                 <Button
                   variant="outline"
                   size="sm"
@@ -237,88 +259,36 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
                   Reset Board
                 </Button>
               </div>
+              
+              <div className="bg-white rounded-md shadow-sm border overflow-hidden">
+                <div className="grid grid-cols-5 gap-1 p-1">
+                  {board.map((row, rowIndex) => (
+                    row.map((cell, colIndex) => (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        className="aspect-square min-h-[48px] bg-white border rounded-md overflow-hidden relative"
+                        onClick={() => handleCellClick(rowIndex, colIndex)}
+                      >
+                        <BingoCard
+                          cell={cell}
+                          size="sm"
+                        />
+                        {(!cell.garmentPart || !cell.defectType) && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/5 hover:bg-background/10 transition-colors cursor-pointer">
+                            <Plus className="h-5 w-5 text-primary/50" />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ))}
+                </div>
+              </div>
             </div>
           </TabsContent>
-          
-          <TabsContent value="defects" className="mt-4">
-            <Card>
-              <CardContent className="p-4">
-                <h4 className="font-medium mb-3 text-sm">Drag Defect Types to Board</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {DEFECT_TYPES.map(defect => (
-                    <DraggableItem
-                      key={defect.code}
-                      type="defect"
-                      data={defect}
-                      onDragStart={() => handleDragStart('defect', defect)}
-                      onDragEnd={handleDragEnd}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="garments" className="mt-4">
-            <Card>
-              <CardContent className="p-4">
-                <h4 className="font-medium mb-3 text-sm">Drag Garment Parts to Board</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {GARMENT_PARTS.map(part => (
-                    <DraggableItem
-                      key={part.code}
-                      type="garment"
-                      data={part}
-                      onDragStart={() => handleDragStart('garment', part)}
-                      onDragEnd={handleDragEnd}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
-        
-        {!isMobile && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-4">
-                <h4 className="font-medium mb-3 text-sm">Drag Defect Types to Board</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {DEFECT_TYPES.map(defect => (
-                    <DraggableItem
-                      key={defect.code}
-                      type="defect"
-                      data={defect}
-                      onDragStart={() => handleDragStart('defect', defect)}
-                      onDragEnd={handleDragEnd}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <h4 className="font-medium mb-3 text-sm">Drag Garment Parts to Board</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {GARMENT_PARTS.map(part => (
-                    <DraggableItem
-                      key={part.code}
-                      type="garment"
-                      data={part}
-                      onDragStart={() => handleDragStart('garment', part)}
-                      onDragEnd={handleDragEnd}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
       
-      {/* Defect validation modal */}
+      {/* Defect selection modal */}
       <DefectModal
         isOpen={modalOpen}
         onClose={() => {

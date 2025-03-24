@@ -78,6 +78,24 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
   const handleDragEnd = () => {
     setDraggedItem(null);
   };
+  
+  // Add both defect type and garment part to a cell
+  const addDefectToCell = (rowIndex: number, colIndex: number, garmentPart: GarmentPart, defectType: DefectType) => {
+    const newBoard = [...board.map(row => [...row])];
+    newBoard[rowIndex][colIndex] = {
+      ...newBoard[rowIndex][colIndex],
+      garmentPart,
+      defectType
+    };
+    
+    setBoard(newBoard);
+    
+    if (onBoardChange) {
+      onBoardChange(newBoard);
+    }
+    
+    return true;
+  };
 
   // Mark a cell as validated
   const markCell = (rowIndex: number, colIndex: number, playerName: string) => {
@@ -91,7 +109,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
       ...newBoard[rowIndex][colIndex],
       marked: true,
       validatedBy: playerName,
-      validatedAt: new Date()  // Fix: Use Date object instead of string
+      validatedAt: new Date()
     };
     
     setBoard(newBoard);
@@ -121,6 +139,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange }: UseDragDropGridPro
     handleDrop,
     handleDragEnd,
     markCell,
-    resetBoard
+    resetBoard,
+    addDefectToCell
   };
 };
