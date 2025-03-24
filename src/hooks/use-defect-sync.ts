@@ -26,22 +26,26 @@ export const useDefectSync = () => {
   
   // Function to add a new defect
   const addDefect = (defect: RecordedDefect) => {
-    setRecentDefects((prev: RecordedDefect[]) => [defect, ...prev.slice(0, 19)]);
+    // Create a new array with the new defect at the beginning and limit to 20 items
+    const updatedDefects = [defect, ...recentDefects.slice(0, 19)];
+    setRecentDefects(updatedDefects);
     return defect;
   };
   
   // Function to update a defect status
   const updateDefectStatus = (defectId: string, status: 'pending' | 'verified' | 'rejected') => {
-    setRecentDefects((prev: RecordedDefect[]) => 
-      prev.map(d => d.id === defectId ? { ...d, status } : d)
+    const updatedDefects = recentDefects.map(d => 
+      d.id === defectId ? { ...d, status } : d
     );
+    setRecentDefects(updatedDefects);
   };
   
   // Function to mark a defect as reworked
   const markAsReworked = (defectId: string, reworkTime?: number) => {
-    setRecentDefects((prev: RecordedDefect[]) => 
-      prev.map(d => d.id === defectId ? { ...d, reworked: true, reworkTime } : d)
+    const updatedDefects = recentDefects.map(d => 
+      d.id === defectId ? { ...d, reworked: true, reworkTime } : d
     );
+    setRecentDefects(updatedDefects);
   };
   
   // Group defects by factory
