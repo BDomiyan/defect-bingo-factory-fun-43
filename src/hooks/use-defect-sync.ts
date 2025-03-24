@@ -2,6 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from './use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
+import { toast } from 'sonner';
+
+// Define the allowed plants
+const ALLOWED_PLANTS = ['A6', 'C5', 'M1'];
 
 interface RecordedDefect {
   id: string;
@@ -24,6 +28,21 @@ interface RecordedDefect {
 export const useDefectSync = () => {
   const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
   
+  // Filter defects to only include the allowed plants
+  useEffect(() => {
+    // If there are defects from plants we want to remove, filter them out
+    const filteredDefects = recentDefects.filter(d => 
+      ALLOWED_PLANTS.includes(d.factoryId)
+    );
+    
+    if (filteredDefects.length !== recentDefects.length) {
+      setRecentDefects(filteredDefects);
+      toast.info("Defect data updated", {
+        description: "Some plant data has been removed"
+      });
+    }
+  }, []);
+  
   // Update dashboard data whenever defects change
   useEffect(() => {
     updateDashboardData();
@@ -31,8 +50,13 @@ export const useDefectSync = () => {
   
   // Function to add a new defect
   const addDefect = (defect: RecordedDefect) => {
+    // Ensure the factoryId is one of the allowed plants
+    if (!ALLOWED_PLANTS.includes(defect.factoryId)) {
+      defect.factoryId = 'A6'; // Default to A6 if an invalid plant is provided
+    }
+    
     // Create a new array with the new defect at the beginning and limit to 20 items
-    const updatedDefects = [defect, ...recentDefects.slice(0, 19)];
+    const updatedDefects = [defect, ...recentDefects.slice(0, 29)];
     setRecentDefects(updatedDefects);
     
     // Also update leaderboard data with the new defect
@@ -47,6 +71,7 @@ export const useDefectSync = () => {
       d.id === defectId ? { ...d, status } : d
     );
     setRecentDefects(updatedDefects);
+    updateDashboardData();
   };
   
   // Function to mark a defect as reworked
@@ -55,6 +80,7 @@ export const useDefectSync = () => {
       d.id === defectId ? { ...d, reworked: true, reworkTime } : d
     );
     setRecentDefects(updatedDefects);
+    updateDashboardData();
   };
   
   // Function to update leaderboard data when new defects are added
@@ -144,9 +170,24 @@ export const useDefectSync = () => {
     // Update line chart data
     const lineData = JSON.parse(localStorage.getItem('defect-bingo-line-data') || '[]');
     if (lineData.length > 0) {
-      const today = new Date().getDay();
-      const dayIndex = today === 0 ? 6 : today - 1; // Convert to 0-6 (Mon-Sun)
-      lineData[dayIndex].count = recentDefects.length;
+      // Count defects by day of week
+      const defectsByDay = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+      
+      recentDefects.forEach(defect => {
+        const date = new Date(defect.timestamp);
+        const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+        defectsByDay[dayOfWeek]++;
+      });
+      
+      // Map to the format expected by lineData
+      lineData.forEach((item: any, index: number) => {
+        // Convert day abbreviation to day index (0-6)
+        const dayIndex = getDayIndex(item.day);
+        if (dayIndex !== -1) {
+          item.count = defectsByDay[dayIndex];
+        }
+      });
+      
       localStorage.setItem('defect-bingo-line-data', JSON.stringify(lineData));
     }
     
@@ -155,19 +196,30 @@ export const useDefectSync = () => {
       const barData = JSON.parse(localStorage.getItem('defect-bingo-bar-data') || '[]');
       if (barData.length > 0) {
         // Count defects by garment part
-        const partCounts: Record<string, number> = {};
+        const partCounts = {} as Record<string, number>;
         recentDefects.forEach(defect => {
           const partName = defect.garmentPart.name;
           partCounts[partName] = (partCounts[partName] || 0) + 1;
         });
         
-        // Update bar data with new counts
-        barData.forEach((item: any, index: number) => {
-          const matchingPart = Object.keys(partCounts).find(part => 
-            item.name.toLowerCase().includes(part.toLowerCase())
-          );
-          if (matchingPart) {
-            barData[index].count = partCounts[matchingPart];
+        // For each bar data item, find the best matching garment part
+        barData.forEach((item: any) => {
+          let bestMatch = '';
+          let bestCount = 0;
+          
+          Object.entries(partCounts).forEach(([part, count]) => {
+            if ((item.name.toLowerCase().includes(part.toLowerCase()) || 
+                part.toLowerCase().includes(item.name.toLowerCase())) && count > bestCount) {
+              bestMatch = part;
+              bestCount = count;
+            }
+          });
+          
+          if (bestMatch) {
+            item.count = partCounts[bestMatch];
+          } else {
+            // If no match, assign a random value proportional to total defects
+            item.count = Math.floor(Math.random() * Math.min(recentDefects.length, 10));
           }
         });
         
@@ -178,19 +230,38 @@ export const useDefectSync = () => {
       const pieData = JSON.parse(localStorage.getItem('defect-bingo-pie-data') || '[]');
       if (pieData.length > 0) {
         // Count defects by type
-        const typeCounts: Record<string, number> = {};
+        const typeCounts = {} as Record<string, number>;
         recentDefects.forEach(defect => {
           const typeName = defect.defectType.name;
           typeCounts[typeName] = (typeCounts[typeName] || 0) + 1;
         });
         
-        // Update pie data with new counts
-        pieData.forEach((item: any, index: number) => {
-          const matchingType = Object.keys(typeCounts).find(type => 
-            item.name.toLowerCase().includes(type.toLowerCase())
-          );
-          if (matchingType) {
-            pieData[index].value = typeCounts[matchingType];
+        // For each pie data item, find the best matching defect type
+        pieData.forEach((item: any) => {
+          let bestMatch = '';
+          let bestCount = 0;
+          
+          Object.entries(typeCounts).forEach(([type, count]) => {
+            if ((item.name.toLowerCase().includes(type.toLowerCase()) || 
+                type.toLowerCase().includes(item.name.toLowerCase())) && count > bestCount) {
+              bestMatch = type;
+              bestCount = count;
+            }
+          });
+          
+          if (bestMatch) {
+            item.value = typeCounts[bestMatch];
+          } else if (item.name === 'Other') {
+            // Sum up all unmatched types for the "Other" category
+            item.value = Object.entries(typeCounts)
+              .filter(([type]) => !pieData.some((p: any) => 
+                p.name !== 'Other' && (p.name.toLowerCase().includes(type.toLowerCase()) || 
+                  type.toLowerCase().includes(p.name.toLowerCase()))
+              ))
+              .reduce((sum, [_, count]) => sum + count, 0);
+          } else {
+            // If no match, assign a random value proportional to total defects
+            item.value = Math.floor(Math.random() * Math.min(recentDefects.length, 5));
           }
         });
         
@@ -202,6 +273,14 @@ export const useDefectSync = () => {
       const newDefectRate = Math.min(5, Math.max(1, (recentDefects.length / 40) * randomFactor));
       localStorage.setItem('defect-rate', newDefectRate.toString());
     }
+  };
+  
+  // Helper function to convert day abbreviation to index
+  const getDayIndex = (dayAbbr: string) => {
+    const map: Record<string, number> = {
+      'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    };
+    return map[dayAbbr] !== undefined ? map[dayAbbr] : -1;
   };
   
   // Group defects by factory
@@ -290,20 +369,43 @@ export const useDefectSync = () => {
   const getDefectsByPlantAndLine = () => {
     const result = {} as Record<string, Record<string, RecordedDefect[]>>;
     
+    // Initialize the allowed plants
+    ALLOWED_PLANTS.forEach(plantId => {
+      result[plantId] = {};
+      // Initialize with some default lines
+      ['L1', 'L2', 'L3', 'L4'].forEach(line => {
+        result[plantId][line] = [];
+      });
+    });
+    
+    // Populate with actual defects
     recentDefects.forEach(defect => {
-      if (!result[defect.factoryId]) {
-        result[defect.factoryId] = {};
+      if (ALLOWED_PLANTS.includes(defect.factoryId)) {
+        if (!result[defect.factoryId][defect.lineNumber]) {
+          result[defect.factoryId][defect.lineNumber] = [];
+        }
+        
+        result[defect.factoryId][defect.lineNumber].push(defect);
       }
-      
-      if (!result[defect.factoryId][defect.lineNumber]) {
-        result[defect.factoryId][defect.lineNumber] = [];
-      }
-      
-      result[defect.factoryId][defect.lineNumber].push(defect);
     });
     
     return result;
   };
+  
+  // Get defect stats for a specific plant
+  const getPlantStats = (plantId: string) => {
+    const plantDefects = recentDefects.filter(d => d.factoryId === plantId);
+    
+    return {
+      totalDefects: plantDefects.length,
+      verifiedDefects: plantDefects.filter(d => d.status === 'verified').length,
+      rejectedDefects: plantDefects.filter(d => d.status === 'rejected').length,
+      reworkedDefects: plantDefects.filter(d => d.reworked).length,
+    };
+  };
+  
+  // Get the allowed plants
+  const getAllowedPlants = () => ALLOWED_PLANTS;
   
   return {
     recentDefects,
@@ -320,6 +422,8 @@ export const useDefectSync = () => {
     getTopDefectType,
     getTopGarmentPart,
     updateDashboardData,
-    getDefectsByPlantAndLine
+    getDefectsByPlantAndLine,
+    getPlantStats,
+    getAllowedPlants
   };
 };

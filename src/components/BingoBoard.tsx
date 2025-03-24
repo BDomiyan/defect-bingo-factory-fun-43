@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle } from 'lucide-react';
+import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle, Confetti } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -29,9 +29,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [players, setPlayers] = useLocalStorage<Player[]>('defect-bingo-players', []);
   const [bingoLines, setBingoLines] = useState<number>(0);
-  const [completedLines, setCompletedLines] = useState<Array<{type: string, index: number}>>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [boardCompletion, setBoardCompletion] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
   const { addDefect } = useDefectSync();
   
   // Initialize the drag and drop grid
@@ -44,8 +44,13 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     handleDragEnd,
     markCell,
     resetBoard,
-    addDefectToCell
-  } = useDragDropGrid({ boardSize });
+    addDefectToCell,
+    getBoardCompletion,
+    completedLines
+  } = useDragDropGrid({ 
+    boardSize,
+    onBingo: (newLines) => handleBingo(newLines)
+  });
   
   // Update isMobile state when window is resized
   useEffect(() => {
@@ -57,13 +62,11 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Calculate the board completion percentage
+  // Update board completion whenever board changes
   useEffect(() => {
-    const filledCells = board.flat().filter(cell => cell.marked).length;
-    const totalCells = boardSize * boardSize;
-    const percentage = Math.round((filledCells / totalCells) * 100);
-    setBoardCompletion(percentage);
-  }, [board, boardSize]);
+    setBoardCompletion(getBoardCompletion());
+    setBingoLines(completedLines.length);
+  }, [board, completedLines]);
   
   // Handle cell click to open the modal
   const handleCellClick = (rowIndex: number, colIndex: number) => {
@@ -84,12 +87,42 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     return null;
   };
   
+  // Handle bingo event
+  const handleBingo = (newLines: Array<{type: string, index: number}>) => {
+    if (newLines.length > 0) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+      
+      // Update player stats
+      updatePlayerStats(newLines.length);
+      
+      // Check for full board
+      const allCellsMarked = board.every(row => row.every(cell => cell.marked));
+      if (allCellsMarked) {
+        toast.success("FULL BOARD BINGO!", {
+          description: "You've completed the entire board!",
+          duration: 8000,
+          icon: <Trophy className="h-5 w-5 text-yellow-400" />
+        });
+        
+        // Add extra points for full board
+        updatePlayerStats(1);
+      }
+    }
+  };
+  
   // Handle validating a defect
   const handleValidateDefect = (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
     if (!selectedCell || !isValid || !garmentPart || !defectType) return;
     
     // Add the selected defect and garment part to the cell
-    addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
+    const pairIsValid = addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
+    
+    if (!pairIsValid) {
+      toast.warning("Unusual combination", {
+        description: "This defect rarely occurs on this garment part"
+      });
+    }
     
     // Mark the cell as validated
     const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
@@ -115,12 +148,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       
       // Add defect to the central system
       addDefect(defectRecord);
-      
-      // Check for bingo
-      const newCompletedLines = checkForBingo();
-      
-      // Update player stats
-      updatePlayerStats(newCompletedLines.length - completedLines.length);
       
       // Find next empty cell and automatically select it after a short delay
       setTimeout(() => {
@@ -177,91 +204,10 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     localStorage.setItem('current-bingo-lines', (bingoLines + newBingos).toString());
   };
   
-  // Check for bingo (horizontal, vertical, diagonal)
-  const checkForBingo = () => {
-    const newCompletedLines = [];
-    
-    // Check horizontal lines
-    for (let i = 0; i < boardSize; i++) {
-      if (board[i].every(cell => cell.marked)) {
-        const lineObj = { type: 'row', index: i };
-        // Check if this line is already in completedLines
-        if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
-          newCompletedLines.push(lineObj);
-        }
-      }
-    }
-    
-    // Check vertical lines
-    for (let j = 0; j < boardSize; j++) {
-      if (board.every(row => row[j].marked)) {
-        const lineObj = { type: 'column', index: j };
-        if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
-          newCompletedLines.push(lineObj);
-        }
-      }
-    }
-    
-    // Check diagonals
-    const diag1 = [];
-    const diag2 = [];
-    for (let i = 0; i < boardSize; i++) {
-      diag1.push(board[i][i]);
-      diag2.push(board[i][boardSize - 1 - i]);
-    }
-    
-    if (diag1.every(cell => cell.marked)) {
-      const lineObj = { type: 'diagonal', index: 1 };
-      if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
-        newCompletedLines.push(lineObj);
-      }
-    }
-    
-    if (diag2.every(cell => cell.marked)) {
-      const lineObj = { type: 'diagonal', index: 2 };
-      if (!completedLines.some(line => line.type === lineObj.type && line.index === lineObj.index)) {
-        newCompletedLines.push(lineObj);
-      }
-    }
-    
-    // If we found new completed lines
-    if (newCompletedLines.length > 0) {
-      // Combine old and new completed lines
-      const allCompletedLines = [...completedLines, ...newCompletedLines];
-      setCompletedLines(allCompletedLines);
-      setBingoLines(allCompletedLines.length);
-      
-      // Show toast for each new bingo
-      newCompletedLines.forEach(line => {
-        toast.success("BINGO!", {
-          description: `You completed a ${line.type === 'row' ? 'horizontal' : line.type === 'column' ? 'vertical' : 'diagonal'} line!`,
-          duration: 5000,
-          icon: <Sparkles className="h-5 w-5 text-yellow-400" />
-        });
-      });
-      
-      // Check for full board bingo
-      const allCellsMarked = board.every(row => row.every(cell => cell.marked));
-      if (allCellsMarked) {
-        toast.success("FULL BOARD BINGO!", {
-          description: "You've completed the entire board!",
-          duration: 8000,
-          icon: <Trophy className="h-5 w-5 text-yellow-400" />
-        });
-        
-        // Add extra points for full board
-        updatePlayerStats(1);
-      }
-    }
-    
-    return [...completedLines, ...newCompletedLines];
-  };
-  
   // Handle board reset
   const handleReset = () => {
     resetBoard();
     setBingoLines(0);
-    setCompletedLines([]);
     setBoardCompletion(0);
     toast.info("Bingo board reset", {
       description: "You can start a new game"
@@ -310,9 +256,26 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     );
   };
   
+  // Render confetti animation when bingo happens
+  const renderConfetti = () => {
+    if (!showConfetti) return null;
+    
+    return (
+      <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+        <div className="absolute">
+          <Confetti className="h-40 w-40 text-primary animate-pulse" />
+        </div>
+        <div className="text-4xl font-bold text-primary animate-bounce">
+          BINGO!
+        </div>
+      </div>
+    );
+  };
+  
   return (
     <div className="w-full max-w-5xl mx-auto bg-card rounded-xl shadow-md overflow-hidden border">
-      <div className="bg-gradient-professional p-4 text-white">
+      {renderConfetti()}
+      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-4 text-white">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xl font-bold">Defect Bingo Game</h3>
           <Badge variant="outline" className="bg-white/10 text-white border-white/20">

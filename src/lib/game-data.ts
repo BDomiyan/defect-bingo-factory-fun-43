@@ -1,3 +1,4 @@
+
 import { GarmentPart, DefectType, Award, BingoBoard } from "./types";
 
 export const GARMENT_PARTS: GarmentPart[] = [
@@ -29,21 +30,21 @@ export const GARMENT_PARTS: GarmentPart[] = [
 
 export const DEFECT_TYPES: DefectType[] = [
   { code: 1, name: "Printing / MBRO" },
-  { code: 2, name: "Slubs / Holes / NAR" },
+  { code: 2, name: "Slubs / Holes" },
   { code: 3, name: "Color Shading" },
   { code: 4, name: "Broken Stitches" },
   { code: 5, name: "Slip Stitches" },
-  { code: 6, name: "SPI (Stitches Per Inch)" },
+  { code: 6, name: "SPI" },
   { code: 7, name: "Puckering" },
   { code: 8, name: "Loose Tensions" },
   { code: 9, name: "Snap Defects" },
   { code: 10, name: "High-Low" },
-  { code: 11, name: "Uneven / Raw Edge" },
+  { code: 11, name: "Uneven Edge" },
   { code: 12, name: "Needle Mark" },
   { code: 13, name: "Open Seam" },
   { code: 14, name: "Pleats" },
   { code: 15, name: "Missing Stitches" },
-  { code: 16, name: "Skip / Run-Off Stitches" },
+  { code: 16, name: "Skip Stitches" },
   { code: 17, name: "Incorrect Label" },
   { code: 18, name: "Wrong Placement" },
   { code: 19, name: "Looseness" },
@@ -54,6 +55,7 @@ export const DEFECT_TYPES: DefectType[] = [
   { code: 24, name: "Uncut Thread" },
 ];
 
+// Updated common defect pairs with more realistic mappings
 export const COMMON_DEFECT_PAIRS: { garmentCode: string; defectCodes: number[] }[] = [
   { garmentCode: "A", defectCodes: [17, 18, 21, 22] }, // Label Attach
   { garmentCode: "B", defectCodes: [4, 7, 8, 13] }, // Neck Binding
@@ -61,9 +63,23 @@ export const COMMON_DEFECT_PAIRS: { garmentCode: string; defectCodes: number[] }
   { garmentCode: "D", defectCodes: [2, 11, 13, 20] }, // Side Seam
   { garmentCode: "E", defectCodes: [2, 11, 13, 20] }, // Side Seam
   { garmentCode: "F", defectCodes: [4, 15, 16, 24] }, // Zipper Bar Tack
+  { garmentCode: "G", defectCodes: [5, 16, 24] }, // Sleeve Tack
+  { garmentCode: "H", defectCodes: [2, 4, 13, 20] }, // Croch Attach
+  { garmentCode: "I", defectCodes: [4, 6, 8, 24] }, // Foot Attach
+  { garmentCode: "J", defectCodes: [3, 18, 21] }, // Heat Seal
   { garmentCode: "K", defectCodes: [4, 7, 13, 19] }, // Zipper Outline
-  { garmentCode: "V", defectCodes: [10, 18, 19, 20] }, // Zipper
+  { garmentCode: "L", defectCodes: [4, 7, 11, 13] }, // In Seam
+  { garmentCode: "M", defectCodes: [4, 5, 16, 24] }, // Neck Tack
   { garmentCode: "N", defectCodes: [4, 6, 8, 24] }, // Bottom Attach
+  { garmentCode: "O", defectCodes: [7, 14, 15, 19] }, // Sleeve Dart
+  { garmentCode: "P", defectCodes: [4, 8, 11, 24] }, // Sleeve Cuff
+  { garmentCode: "Q", defectCodes: [5, 16, 18, 19] }, // Tab
+  { garmentCode: "R", defectCodes: [4, 15, 16, 24] }, // Foot Bartack
+  { garmentCode: "S", defectCodes: [4, 15, 16, 24] }, // Box Tack
+  { garmentCode: "T", defectCodes: [2, 4, 13, 20] }, // Top Foot
+  { garmentCode: "U", defectCodes: [8, 10, 19] }, // Elastic
+  { garmentCode: "V", defectCodes: [10, 18, 19, 20] }, // Zipper
+  { garmentCode: "W", defectCodes: [4, 5, 16, 24] }, // Facing Tack
   { garmentCode: "X", defectCodes: [4, 6, 8, 24] }, // Bottom Binding
 ];
 
@@ -141,6 +157,7 @@ export const MOCK_PLAYERS: any[] = [
   }
 ];
 
+// Improved bingo checking function
 export const checkForBingo = (board: BingoBoard): string[] => {
   const size = board.length;
   const bingos: string[] = [];
@@ -176,24 +193,17 @@ export const checkForBingo = (board: BingoBoard): string[] => {
   return bingos;
 };
 
+// Calculates the percentage of cells completed on the board
 export const calculateCompletion = (board: BingoBoard): number => {
   const totalCells = board.length * board[0].length;
-  let filledCells = 0;
-  let markedCells = 0;
+  const markedCells = board.flat().filter(cell => cell.marked).length;
+  return Math.round((markedCells / totalCells) * 100);
+};
+
+// Validates if a defect and garment part combination is valid
+export const isValidCombination = (garmentPart: GarmentPart, defectType: DefectType): boolean => {
+  const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
+  if (!pair) return true; // If no specific rules, allow any combination
   
-  for (let i = 0; i < board.length; i++) {
-    for (let j = 0; j < board[i].length; j++) {
-      if (board[i][j].garmentPart && board[i][j].defectType) {
-        filledCells++;
-        
-        if (board[i][j].marked) {
-          markedCells++;
-        }
-      }
-    }
-  }
-  
-  if (filledCells === 0) return 0;
-  
-  return Math.round((markedCells / filledCells) * 100);
+  return pair.defectCodes.includes(defectType.code);
 };
