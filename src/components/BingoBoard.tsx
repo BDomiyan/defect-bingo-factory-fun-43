@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Trophy, RefreshCcw, Plus } from 'lucide-react';
+import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType } from '@/lib/types';
@@ -30,6 +31,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const [bingoLines, setBingoLines] = useState<number>(0);
   const [completedLines, setCompletedLines] = useState<Array<{type: string, index: number}>>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [boardCompletion, setBoardCompletion] = useState(0);
   const { addDefect } = useDefectSync();
   
   // Initialize the drag and drop grid
@@ -54,6 +56,14 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Calculate the board completion percentage
+  useEffect(() => {
+    const filledCells = board.flat().filter(cell => cell.marked).length;
+    const totalCells = boardSize * boardSize;
+    const percentage = Math.round((filledCells / totalCells) * 100);
+    setBoardCompletion(percentage);
+  }, [board, boardSize]);
   
   // Handle cell click to open the modal
   const handleCellClick = (rowIndex: number, colIndex: number) => {
@@ -97,7 +107,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         timestamp: new Date().toISOString(),
         operatorId: crypto.randomUUID(),
         operatorName: playerName,
-        factoryId: 'f1', // Default factory
+        factoryId: 'A6', // Default factory
         lineNumber: 'L1', // Default line
         status: 'verified' as const,
         reworked: false
@@ -162,6 +172,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         }
       ]);
     }
+    
+    // Update global leaderboard with new bingoLines count
+    localStorage.setItem('current-bingo-lines', (bingoLines + newBingos).toString());
   };
   
   // Check for bingo (horizontal, vertical, diagonal)
@@ -249,9 +262,52 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     resetBoard();
     setBingoLines(0);
     setCompletedLines([]);
+    setBoardCompletion(0);
     toast.info("Bingo board reset", {
       description: "You can start a new game"
     });
+  };
+  
+  // Prepare data for drag and drop
+  const renderDragDropItems = () => {
+    return (
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <div>
+          <h4 className="text-sm font-medium mb-2">Garment Parts</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {GARMENT_PARTS.slice(0, 6).map(part => (
+              <div
+                key={part.code}
+                className="border rounded-md p-2 cursor-move bg-blue-50 shadow-sm hover:shadow-md transition-all"
+                draggable
+                onDragStart={() => handleDragStart('garment', part)}
+                onDragEnd={handleDragEnd}
+              >
+                <span className="text-xs font-medium block truncate">{part.name}</span>
+                <span className="text-xs text-muted-foreground">{part.code}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium mb-2">Defect Types</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {DEFECT_TYPES.slice(0, 6).map(defect => (
+              <div
+                key={defect.code}
+                className="border rounded-md p-2 cursor-move bg-red-50 shadow-sm hover:shadow-md transition-all"
+                draggable
+                onDragStart={() => handleDragStart('defect', defect)}
+                onDragEnd={handleDragEnd}
+              >
+                <span className="text-xs font-medium block truncate">{defect.name}</span>
+                <span className="text-xs text-muted-foreground">{defect.code}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
   
   return (
@@ -270,9 +326,29 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       </div>
       
       <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Board Completion:</span>
+            <span className="text-sm">{boardCompletion}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">
+              {bingoLines > 0 ? 
+                <span className="flex items-center text-green-600">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  {bingoLines} Bingo{bingoLines > 1 ? 's' : ''} Found
+                </span> : 
+                "No Bingos Yet"}
+            </span>
+          </div>
+        </div>
+        
+        <Progress value={boardCompletion} className="h-2 mb-4" />
+        
         <Tabs defaultValue="board" value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="w-full grid grid-cols-1">
+          <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="board">Bingo Board</TabsTrigger>
+            <TabsTrigger value="drag-drop">Drag & Drop Mode</TabsTrigger>
           </TabsList>
           
           <TabsContent value="board" className="mt-4">
@@ -331,6 +407,52 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
                         {(!cell.garmentPart || !cell.defectType) && (
                           <div className="absolute inset-0 flex items-center justify-center bg-background/5 hover:bg-background/10 transition-colors cursor-pointer">
                             <Plus className="h-5 w-5 text-primary/50" />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ))}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="drag-drop" className="mt-4">
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-medium mb-4">Drag & Drop Mode</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Drag items from below and drop them onto the board to create your bingo!
+                  </p>
+                  
+                  {renderDragDropItems()}
+                </CardContent>
+              </Card>
+              
+              <div className="bg-white rounded-md shadow-sm border overflow-hidden mt-4">
+                <div className="grid grid-cols-5 gap-1 p-1">
+                  {board.map((row, rowIndex) => (
+                    row.map((cell, colIndex) => (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        className="aspect-square min-h-[48px] bg-white border rounded-md overflow-hidden relative"
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(rowIndex, colIndex)}
+                      >
+                        <BingoCard
+                          cell={cell}
+                          size="sm"
+                          isBingoLine={completedLines.some(line => 
+                            (line.type === 'row' && line.index === rowIndex) ||
+                            (line.type === 'column' && line.index === colIndex) ||
+                            (line.type === 'diagonal' && line.index === 1 && rowIndex === colIndex) ||
+                            (line.type === 'diagonal' && line.index === 2 && rowIndex === (boardSize - 1 - colIndex))
+                          )}
+                        />
+                        {(!cell.garmentPart || !cell.defectType) && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/5 hover:bg-background/10 transition-colors">
+                            <span className="text-xs text-muted-foreground">Drop here</span>
                           </div>
                         )}
                       </div>

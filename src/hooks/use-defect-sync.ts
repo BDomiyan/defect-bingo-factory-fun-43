@@ -34,6 +34,10 @@ export const useDefectSync = () => {
     // Create a new array with the new defect at the beginning and limit to 20 items
     const updatedDefects = [defect, ...recentDefects.slice(0, 19)];
     setRecentDefects(updatedDefects);
+    
+    // Also update leaderboard data with the new defect
+    updateLeaderboardData(defect);
+    
     return defect;
   };
   
@@ -51,6 +55,88 @@ export const useDefectSync = () => {
       d.id === defectId ? { ...d, reworked: true, reworkTime } : d
     );
     setRecentDefects(updatedDefects);
+  };
+  
+  // Function to update leaderboard data when new defects are added
+  const updateLeaderboardData = (defect: RecordedDefect) => {
+    // Update player stats in leaderboard
+    const players = JSON.parse(localStorage.getItem('defect-bingo-players') || '[]');
+    const playerName = defect.operatorName;
+    
+    // Check if player exists in leaderboard
+    const playerExists = players.some((p: any) => p.name === playerName);
+    
+    if (playerExists) {
+      const updatedPlayers = players.map((p: any) => {
+        if (p.name === playerName) {
+          return {
+            ...p,
+            defectsFound: p.defectsFound + 1,
+            score: p.score + 5
+          };
+        }
+        return p;
+      });
+      localStorage.setItem('defect-bingo-players', JSON.stringify(updatedPlayers));
+    } else {
+      // Create new player
+      const newPlayer = {
+        id: defect.operatorId || crypto.randomUUID(),
+        name: playerName,
+        role: 'operator',
+        score: 5,
+        bingoCount: 0,
+        defectsFound: 1
+      };
+      localStorage.setItem('defect-bingo-players', JSON.stringify([...players, newPlayer]));
+    }
+    
+    // Also update plant and line performance data
+    updatePlantPerformanceData(defect);
+  };
+  
+  // Function to update plant performance data with new defects
+  const updatePlantPerformanceData = (defect: RecordedDefect) => {
+    // Get existing performance data or initialize empty
+    const plantPerformance = JSON.parse(localStorage.getItem('plant-performance') || '{}');
+    
+    // Initialize plant if doesn't exist
+    if (!plantPerformance[defect.factoryId]) {
+      plantPerformance[defect.factoryId] = {
+        totalDefects: 0,
+        defectsByLine: {},
+        linePerformance: {}
+      };
+    }
+    
+    // Update plant data
+    plantPerformance[defect.factoryId].totalDefects += 1;
+    
+    // Initialize line if doesn't exist
+    if (!plantPerformance[defect.factoryId].defectsByLine[defect.lineNumber]) {
+      plantPerformance[defect.factoryId].defectsByLine[defect.lineNumber] = 0;
+      plantPerformance[defect.factoryId].linePerformance[defect.lineNumber] = {
+        efficiency: 100,
+        quality: 100,
+        lastUpdated: new Date().toISOString()
+      };
+    }
+    
+    // Update line data
+    plantPerformance[defect.factoryId].defectsByLine[defect.lineNumber] += 1;
+    
+    // Simulate line performance changes
+    const efficiency = Math.max(70, 100 - (plantPerformance[defect.factoryId].defectsByLine[defect.lineNumber] * 2));
+    const quality = Math.max(80, 100 - (plantPerformance[defect.factoryId].defectsByLine[defect.lineNumber] * 1.5));
+    
+    plantPerformance[defect.factoryId].linePerformance[defect.lineNumber] = {
+      efficiency,
+      quality,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Save updated performance data
+    localStorage.setItem('plant-performance', JSON.stringify(plantPerformance));
   };
   
   // Function to update dashboard data in localStorage
@@ -126,7 +212,7 @@ export const useDefectSync = () => {
     } else {
       acc.push({
         id: defect.factoryId,
-        name: `Factory ${defect.factoryId}`,
+        name: `Plant ${defect.factoryId}`,
         defects: [defect],
       });
     }
@@ -200,6 +286,25 @@ export const useDefectSync = () => {
     return recentDefects.find(d => d.garmentPart.code === topPartCode)?.garmentPart || null;
   };
   
+  // Get defects by plant and line for incentive calculations
+  const getDefectsByPlantAndLine = () => {
+    const result = {} as Record<string, Record<string, RecordedDefect[]>>;
+    
+    recentDefects.forEach(defect => {
+      if (!result[defect.factoryId]) {
+        result[defect.factoryId] = {};
+      }
+      
+      if (!result[defect.factoryId][defect.lineNumber]) {
+        result[defect.factoryId][defect.lineNumber] = [];
+      }
+      
+      result[defect.factoryId][defect.lineNumber].push(defect);
+    });
+    
+    return result;
+  };
+  
   return {
     recentDefects,
     setRecentDefects,
@@ -214,6 +319,7 @@ export const useDefectSync = () => {
     reworkedDefects,
     getTopDefectType,
     getTopGarmentPart,
-    updateDashboardData
+    updateDashboardData,
+    getDefectsByPlantAndLine
   };
 };

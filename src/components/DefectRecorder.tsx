@@ -50,8 +50,9 @@ interface DefectRecorderProps {
 const DefectRecorder: React.FC<DefectRecorderProps> = ({ 
   onDefectRecorded,
   factoryList = [
-    { id: 'f1', name: 'Factory Alpha', lines: ['L1', 'L2', 'L3'] },
-    { id: 'f2', name: 'Factory Beta', lines: ['L1', 'L2', 'L3', 'L4'] }
+    { id: 'A6', name: 'Plant A6', lines: ['L1', 'L2', 'L3', 'L4'] },
+    { id: 'B2', name: 'Plant B2', lines: ['L1', 'L2', 'L3'] },
+    { id: 'C4', name: 'Plant C4', lines: ['L1', 'L2', 'L3', 'L4', 'L5'] }
   ],
   operatorId = '',
   operatorName = ''
@@ -60,7 +61,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   const { addDefect, recentDefects } = useDefectSync();
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
-  const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'f1');
+  const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'A6');
   const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || 'L1');
   const [operatorInput, setOperatorInput] = useState<string>(operatorName || user?.name || '');
   const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');

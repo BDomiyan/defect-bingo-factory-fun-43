@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,7 @@ import FactoryMetrics from '@/components/FactoryMetrics';
 import DefectRecorder from '@/components/DefectRecorder';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   ResponsiveContainer, 
   LineChart as RechartsLineChart, 
@@ -27,6 +29,9 @@ import { Player, DefectType, GarmentPart } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import BingoBoard from '@/components/BingoBoard';
+import IncentiveConfig from '@/components/IncentiveConfig';
+import { useDefectSync } from '@/hooks/use-defect-sync';
 
 const defaultLineData = [
   { day: 'Mon', count: 0 },
@@ -80,9 +85,8 @@ const Dashboard = () => {
   const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
   const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 0);
   const [recentlyRecordedDefect, setRecentlyRecordedDefect] = useState<any | null>(null);
-  const [recentDefects] = useLocalStorage<any[]>('recent-defects', []);
+  const { recentDefects, addDefect, totalDefects } = useDefectSync();
   
-  const totalDefects = recentDefects.length;
   const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
   const topPlayer = [...players].sort((a, b) => b.score - a.score)[0] || defaultPlayers[0];
   
@@ -131,37 +135,6 @@ const Dashboard = () => {
       newPieData[newPieData.length - 1].value += 1; // Add to "Other" category
     }
     setPieData(newPieData);
-    
-    const playerExists = players.some(p => 
-      p.name === defect.operatorName || 
-      (defect.operatorId && p.id === defect.operatorId)
-    );
-    
-    if (playerExists) {
-      const updatedPlayers = players.map(p => {
-        if (p.name === defect.operatorName || (defect.operatorId && p.id === defect.operatorId)) {
-          return {
-            ...p,
-            defectsFound: p.defectsFound + 1,
-            score: p.score + 5
-          };
-        }
-        return p;
-      });
-      setPlayers(updatedPlayers);
-    } else if (defect.operatorName) {
-      setPlayers([
-        ...players,
-        {
-          id: defect.operatorId || crypto.randomUUID(),
-          name: defect.operatorName,
-          role: 'operator',
-          score: 5,
-          bingoCount: 0,
-          defectsFound: 1
-        }
-      ]);
-    }
     
     const randomFactor = Math.random() * 0.5 + 0.8; // Random factor between 0.8 and 1.3
     setDefectRate(Math.min(5, Math.max(1, ((recentDefects.length + 1) / 40) * randomFactor)));
@@ -243,6 +216,66 @@ const Dashboard = () => {
     toast.info('Data reset', {
       description: 'All dashboard data has been reset to defaults'
     });
+  };
+  
+  const renderLeaderboard = () => {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Top Players</h3>
+        
+        {players.length > 0 ? (
+          <>
+            <div className="bg-muted/30 p-3 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <span className="font-medium">{topPlayer.name}</span>
+                </div>
+                <Badge variant="outline">{topPlayer.score} points</Badge>
+              </div>
+              <div className="flex justify-between text-sm">
+                <div className="text-muted-foreground">Defects found: {topPlayer.defectsFound}</div>
+                <div className="text-muted-foreground">Bingos: {topPlayer.bingoCount}</div>
+              </div>
+              <Progress value={(topPlayer.score / 100) * 100} className="h-2 mt-2" />
+            </div>
+          
+            <div className="space-y-2">
+              {players
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5)
+                .map((player, index) => (
+                  <div 
+                    key={player.id} 
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded-md",
+                      index === 0 ? "bg-yellow-50 border border-yellow-200" : "bg-card border"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 flex items-center justify-center bg-muted rounded-full text-sm font-medium">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium">{player.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {player.defectsFound} defects · {player.bingoCount} bingos
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-bold">{player.score}</div>
+                  </div>
+                ))
+              }
+            </div>
+          </>
+        ) : (
+          <div className="text-center p-6 text-muted-foreground">
+            No players available. Record defects or play Bingo to see the leaderboard.
+          </div>
+        )}
+      </div>
+    );
   };
   
   return (
@@ -481,6 +514,10 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
               </Card>
+              
+              <div className="md:col-span-2 mt-4">
+                <BingoBoard />
+              </div>
             </div>
           </TabsContent>
           
@@ -593,80 +630,22 @@ const Dashboard = () => {
           </TabsContent>
           
           <TabsContent value="incentives" className="mt-4">
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle>Operator Incentives</CardTitle>
-                <CardDescription>
-                  Incentive tracking based on quality performance and AQL pass rates
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Top Performers</h3>
-                    
-                    <div className="space-y-3">
-                      {totalDefects > 0 ? players.slice(0, 3).map((player, index) => (
-                        <div key={player.id} className="flex items-center justify-between border rounded-lg p-3 bg-accent/20">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-bold">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <div className="font-medium">{player.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {player.defectsFound} defects found
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <Badge className="bg-green-500/90">+${(player.score / 10).toFixed(2)}</Badge>
-                          </div>
-                        </div>
-                      )) : (
-                        <div className="text-center p-8 text-muted-foreground">
-                          No performer data available
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Incentive Structure</h3>
-                    
-                    <div className="space-y-3">
-                      <div className="rounded-lg border bg-accent/30 p-3">
-                        <div className="font-medium">AQL Pass Rate 98-100%</div>
-                        <div className="text-sm text-muted-foreground">$5.00 incentive per day</div>
-                      </div>
-                      
-                      <div className="rounded-lg border bg-accent/20 p-3">
-                        <div className="font-medium">AQL Pass Rate 95-97%</div>
-                        <div className="text-sm text-muted-foreground">$3.00 incentive per day</div>
-                      </div>
-                      
-                      <div className="rounded-lg border bg-accent/10 p-3">
-                        <div className="font-medium">AQL Pass Rate 90-94%</div>
-                        <div className="text-sm text-muted-foreground">$1.50 incentive per day</div>
-                      </div>
-                      
-                      <div className="rounded-lg border p-3">
-                        <div className="font-medium">AQL Pass Rate &lt; 90%</div>
-                        <div className="text-sm text-muted-foreground">No incentive</div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 p-3 rounded-lg bg-primary/10 border-primary/20 border">
-                      <h4 className="font-medium mb-1">Current Line Incentive Status</h4>
-                      <div className="flex items-center justify-between">
-                        <div>Pass Rate: <span className="font-bold">92%</span></div>
-                        <Badge className="bg-green-500/90">$1.50 per operator</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <IncentiveConfig />
+              </div>
+              <div>
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Player Leaderboard</CardTitle>
+                    <CardDescription>Top performers based on defect detection</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {renderLeaderboard()}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
         

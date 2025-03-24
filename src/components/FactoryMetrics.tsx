@@ -12,30 +12,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Printer, FileSpreadsheet, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Calendar, Printer, FileSpreadsheet, BarChart3, ArrowUpRight, ArrowDownRight, Cog } from "lucide-react";
 import FactoryAnalyticsTable from "@/components/FactoryAnalyticsTable";
 import RealTimeMetricsCard from "@/components/RealTimeMetricsCard";
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDefectSync } from '@/hooks/use-defect-sync';
 import { format } from 'date-fns';
-
-interface RecordedDefect {
-  id: string;
-  defectType: any;
-  garmentPart: any;
-  timestamp: string;
-  operatorId: string;
-  operatorName: string;
-  factoryId: string;
-  lineNumber: string;
-  status: 'pending' | 'verified' | 'rejected';
-  reworked: boolean;
-  reworkTime?: number;
-}
 
 const FactoryMetrics = () => {
   const [activeTab, setActiveTab] = useState("production");
   const [currentDate] = useState(new Date());
-  const [recentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
+  const { recentDefects, defectsByFactory, defectsByLine, totalDefects, verifiedDefects, rejectedDefects, reworkedDefects, getTopDefectType, getTopGarmentPart } = useDefectSync();
+  const [incentiveRules, setIncentiveRules] = useLocalStorage('incentive-rules', {
+    excellent: { rate: 5.00, threshold: 98 },
+    good: { rate: 3.00, threshold: 95 },
+    average: { rate: 1.50, threshold: 90 },
+    poor: { rate: 0.00, threshold: 0 }
+  });
+  const [editingRules, setEditingRules] = useState(false);
+  const [tempRules, setTempRules] = useState(incentiveRules);
 
   // Calculate metrics based on recorded defects
   const calculateDefectRate = () => {
@@ -52,38 +48,105 @@ const FactoryMetrics = () => {
 
   const calculateRejectRate = () => {
     if (recentDefects.length === 0) return 0;
-    const rejected = recentDefects.filter(d => d.status === 'rejected');
-    return Math.round((rejected.length / recentDefects.length) * 100) / 100;
+    return Math.round((rejectedDefects / totalDefects) * 100) / 100;
   };
 
   const calculateReworkRate = () => {
     if (recentDefects.length === 0) return 0;
-    const reworked = recentDefects.filter(d => d.reworked);
-    return Math.round((reworked.length / recentDefects.length) * 100) / 100;
+    return Math.round((reworkedDefects / totalDefects) * 100) / 100;
   };
 
-  // Group defects by factory
-  const defectsByFactory = recentDefects.reduce((acc, defect) => {
-    const factory = acc.find(f => f.id === defect.factoryId);
-    if (factory) {
-      factory.defects.push(defect);
-    } else {
-      acc.push({
-        id: defect.factoryId,
-        name: `Factory ${defect.factoryId}`,
-        defects: [defect],
-      });
-    }
-    return acc;
-  }, [] as Array<{id: string, name: string, defects: RecordedDefect[]}>);
+  const calculateEfficiency = () => {
+    const total = totalDefects;
+    if (total === 0) return 100;
+    const fixed = reworkedDefects;
+    return Math.round(((total - fixed) / total) * 100);
+  };
+
+  const calculateAQLPassRate = () => {
+    if (totalDefects === 0) return 100;
+    const failedItems = rejectedDefects;
+    return Math.round(((totalDefects - failedItems) / totalDefects) * 100);
+  };
+
+  const getCurrentIncentiveRate = () => {
+    const passRate = calculateAQLPassRate();
+    if (passRate >= incentiveRules.excellent.threshold) return incentiveRules.excellent.rate;
+    if (passRate >= incentiveRules.good.threshold) return incentiveRules.good.rate;
+    if (passRate >= incentiveRules.average.threshold) return incentiveRules.average.rate;
+    return incentiveRules.poor.rate;
+  };
 
   // Create source data for metrics cards
   const metricsData = {
     defectRate: calculateDefectRate(),
     rejectRate: calculateRejectRate(),
     reworkRate: calculateReworkRate(),
-    totalDefects: recentDefects.length,
-    factoryCount: defectsByFactory.length
+    totalDefects: totalDefects,
+    factoryCount: defectsByFactory.length,
+    efficiency: calculateEfficiency(),
+    aqlPassRate: calculateAQLPassRate(),
+    incentiveRate: getCurrentIncentiveRate()
+  };
+
+  const handleSaveIncentiveRules = () => {
+    setIncentiveRules(tempRules);
+    setEditingRules(false);
+  };
+
+  // Create efficiency tab content with progress bars
+  const renderEfficiencyContent = () => {
+    const plantEfficiencies = defectsByFactory.map(factory => {
+      const total = factory.defects.length;
+      const reworked = factory.defects.filter(d => d.reworked).length;
+      const efficiency = total === 0 ? 100 : Math.round(((total - reworked) / total) * 100);
+      
+      return {
+        id: factory.id,
+        name: factory.name,
+        efficiency,
+        defectCount: total
+      };
+    });
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Plant Efficiency Metrics</h3>
+          <div className="text-sm text-muted-foreground">
+            Overall efficiency: <span className="font-bold">{calculateEfficiency()}%</span>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          {plantEfficiencies.length > 0 ? (
+            plantEfficiencies.map(plant => (
+              <div key={plant.id} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="font-medium">{plant.name}</div>
+                  <div className="text-sm">
+                    {plant.efficiency}% <span className="text-muted-foreground">({plant.defectCount} defects)</span>
+                  </div>
+                </div>
+                <Progress value={plant.efficiency} className="h-2" />
+              </div>
+            ))
+          ) : (
+            <div className="text-center p-6 text-muted-foreground">
+              No plant data available
+            </div>
+          )}
+        </div>
+        
+        <div className="bg-muted/30 p-4 rounded-lg">
+          <h4 className="font-medium mb-2">Efficiency Calculation</h4>
+          <p className="text-sm text-muted-foreground">
+            Efficiency is calculated based on the ratio of successfully processed items to total items.
+            Lower rework rates indicate higher efficiency.
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -274,7 +337,7 @@ const FactoryMetrics = () => {
                   <div className="border rounded-md p-4">
                     <div className="text-sm text-muted-foreground mb-1">Total Defects</div>
                     <div className="flex justify-between">
-                      <div className="text-2xl font-bold">{recentDefects.length}</div>
+                      <div className="text-2xl font-bold">{totalDefects}</div>
                       <div className="flex items-center text-sm text-green-600">
                         <ArrowUpRight className="h-4 w-4 mr-1" />
                         +12%
@@ -296,13 +359,64 @@ const FactoryMetrics = () => {
                   <div className="border rounded-md p-4">
                     <div className="text-sm text-muted-foreground mb-1">First-Time Pass</div>
                     <div className="flex justify-between">
-                      <div className="text-2xl font-bold">{recentDefects.length > 0 ? (100 - calculateRejectRate() * 100).toFixed(1) : "100.0"}%</div>
+                      <div className="text-2xl font-bold">{totalDefects > 0 ? (100 - calculateRejectRate() * 100).toFixed(1) : "100.0"}%</div>
                       <div className="flex items-center text-sm text-green-600">
                         <ArrowUpRight className="h-4 w-4 mr-1" />
                         +2%
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Top Defects by Plant</h3>
+                
+                <div className="space-y-4">
+                  {defectsByFactory.map(factory => {
+                    // Count defects by type for this factory
+                    const typeCounts = {} as Record<string, number>;
+                    factory.defects.forEach(d => {
+                      const typeName = d.defectType.name;
+                      typeCounts[typeName] = (typeCounts[typeName] || 0) + 1;
+                    });
+                    
+                    // Find top defect type
+                    let topType = 'None';
+                    let topCount = 0;
+                    
+                    Object.entries(typeCounts).forEach(([type, count]) => {
+                      if (count > topCount) {
+                        topType = type;
+                        topCount = count;
+                      }
+                    });
+                    
+                    return (
+                      <div key={factory.id} className="border rounded-lg p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="font-medium">{factory.name}</div>
+                          <Badge variant="outline">{factory.defects.length} defects</Badge>
+                        </div>
+                        
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Top defect: </span>
+                          <span className="font-medium">{topType} ({topCount})</span>
+                        </div>
+                        
+                        <div className="mt-2">
+                          <div className="text-sm text-muted-foreground mb-1">Defect distribution</div>
+                          <Progress value={topCount / factory.defects.length * 100} className="h-2" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {defectsByFactory.length === 0 && (
+                    <div className="text-center p-4 text-muted-foreground">
+                      No quality data available
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -318,10 +432,7 @@ const FactoryMetrics = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">Efficiency metrics will be calculated based on defect records.</p>
-                <Button>View Detailed Report</Button>
-              </div>
+              {renderEfficiencyContent()}
             </CardContent>
           </Card>
         </TabsContent>
