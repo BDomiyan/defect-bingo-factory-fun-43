@@ -336,7 +336,7 @@ const IncentiveConfig = () => {
                       <div className="text-sm text-red-700">${incentiveRules.poor.rate.toFixed(2)} per operator</div>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <div>Pass Rate < {incentiveRules.average.threshold}%</div>
+                      <div>Pass Rate &lt; {incentiveRules.average.threshold}%</div>
                       <div>No incentive tier</div>
                     </div>
                   </div>
