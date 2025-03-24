@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -27,7 +27,7 @@ const DefectModal = ({
   const [selectedDefectType, setSelectedDefectType] = useState<DefectType | null>(cell?.defectType || null);
   
   // Reset selections when modal opens with new cell
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setSelectedGarmentPart(cell?.garmentPart || null);
       setSelectedDefectType(cell?.defectType || null);
