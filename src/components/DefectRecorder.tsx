@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, AlertTriangle, Save, Loader2, Calendar, Award, Confetti } from "lucide-react";
+import { Check, Clock, AlertTriangle, Save, Loader2, Calendar, Award, PartyPopper } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -63,19 +62,16 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       setLineNumber(user.lineNumber);
     }
 
-    // Load operators for this line
     const lineOperators = getOperatorsByLine(factoryId, lineNumber);
     setOperators(lineOperators);
   }, [user, factoryId, lineNumber]);
 
   useEffect(() => {
-    // When line or factory changes, update operators list
     const lineOperators = getOperatorsByLine(factoryId, lineNumber);
     setOperators(lineOperators);
     setSelectedOperator('');
   }, [factoryId, lineNumber]);
 
-  // Handle operator selection from dropdown
   const handleOperatorSelect = (operatorId: string) => {
     setSelectedOperator(operatorId);
     const selectedOp = operators.find(op => op.id === operatorId);
@@ -137,7 +133,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         lineNumber,
         epfNumber: epfNumber || 'N/A',
         operation: operation || undefined,
-        status: 'pending', // Changed to pending for supervisor validation
+        status: 'pending',
         reworked: false
       };
       
@@ -206,7 +202,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
           <div className="animate-confetti-explosion">
-            <Confetti className="h-16 w-16 text-primary animate-spin" />
+            <PartyPopper className="h-16 w-16 text-primary animate-spin" />
           </div>
         </div>
       )}

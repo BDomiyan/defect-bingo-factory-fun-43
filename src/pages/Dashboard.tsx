@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle, User, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -263,6 +262,7 @@ const Dashboard = () => {
         operatorName: demoPlayers[Math.floor(Math.random() * demoPlayers.length)].name,
         factoryId: FACTORIES[randomGarmentIndex].id,
         lineNumber: FACTORIES[randomGarmentIndex].lines[0],
+        epfNumber: `EPF${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         status: 'verified',
         reworked: Math.random() > 0.7
       });

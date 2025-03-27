@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
 import DefectModal from '@/components/DefectModal';
@@ -115,7 +114,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
       
-      // Show supervisor notification for the first line
       const firstLine = newLines[0];
       setCurrentCompletedLine(firstLine);
       setCompletedLineCells(getCellsForLine(firstLine));
@@ -143,7 +141,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         duration: 5000,
       });
     } else {
-      // Unmark cells in the line if not valid
       if (currentCompletedLine) {
         const newBoard = [...board];
         
@@ -200,7 +197,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           description: "Cell marked as validated"
         });
         
-        const defectRecord = {
+        const defectRecord: RecordedDefect = {
           id: crypto.randomUUID(),
           defectType: defectType,
           garmentPart: garmentPart,
@@ -209,6 +206,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           operatorName: playerName,
           factoryId: 'A6',
           lineNumber: 'L1',
+          epfNumber: 'N/A',
           status: 'verified' as const,
           reworked: false
         };
