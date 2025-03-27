@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
 import DefectModal from '@/components/DefectModal';
@@ -12,7 +13,7 @@ import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle, PartyPopper } from 'lu
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType, BingoCell } from '@/lib/types';
+import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType, BingoCell, RecordedDefect } from '@/lib/types';
 import { useDefectSync } from '@/hooks/use-defect-sync';
 
 interface BingoBoardProps {
