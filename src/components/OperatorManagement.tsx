@@ -11,10 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { FACTORIES } from '@/lib/game-data';
+import { FACTORIES, OPERATIONS } from '@/lib/game-data';
+import { useAuth } from '@/context/auth-context';
 
 const OperatorManagement = () => {
   const { operators, addOperator, updateOperator, removeOperator } = useDefectSync();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -23,15 +25,17 @@ const OperatorManagement = () => {
   // Form states
   const [name, setName] = useState('');
   const [epfNumber, setEpfNumber] = useState('');
-  const [factoryId, setFactoryId] = useState('A6');
-  const [line, setLine] = useState('L1');
+  const [factoryId, setFactoryId] = useState(user?.plantId || 'A6');
+  const [line, setLine] = useState('');
+  const [operation, setOperation] = useState('');
   
   // Reset form
   const resetForm = () => {
     setName('');
     setEpfNumber('');
-    setFactoryId('A6');
-    setLine('L1');
+    setFactoryId(user?.plantId || 'A6');
+    setLine('');
+    setOperation('');
   };
   
   // Close add dialog
@@ -54,6 +58,7 @@ const OperatorManagement = () => {
     setEpfNumber(operator.epfNumber);
     setFactoryId(operator.factory);
     setLine(operator.line);
+    setOperation(operator.operation || '');
     setIsEditDialogOpen(true);
   };
   
@@ -71,7 +76,8 @@ const OperatorManagement = () => {
       name,
       epfNumber,
       factory: factoryId,
-      line
+      line,
+      operation: operation || undefined
     };
     
     const result = addOperator(newOperator);
@@ -93,7 +99,8 @@ const OperatorManagement = () => {
       name,
       epfNumber,
       factory: factoryId,
-      line
+      line,
+      operation: operation || undefined
     };
     
     const result = updateOperator(selectedOperator.id, updatedData);
@@ -114,7 +121,8 @@ const OperatorManagement = () => {
     op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     op.epfNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     op.factory.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    op.line.toLowerCase().includes(searchTerm.toLowerCase())
+    op.line.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (op.operation && op.operation.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
   // Get factory by ID
@@ -208,6 +216,22 @@ const OperatorManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="operation" className="text-right">Operation</Label>
+                  <Select value={operation} onValueChange={setOperation}>
+                    <SelectTrigger id="operation" className="col-span-3">
+                      <SelectValue placeholder="Select operation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPERATIONS.map(op => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <DialogFooter>
@@ -283,6 +307,22 @@ const OperatorManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="edit-operation" className="text-right">Operation</Label>
+                  <Select value={operation} onValueChange={setOperation}>
+                    <SelectTrigger id="edit-operation" className="col-span-3">
+                      <SelectValue placeholder="Select operation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPERATIONS.map(op => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <DialogFooter>
@@ -305,6 +345,7 @@ const OperatorManagement = () => {
                 <TableHead>EPF Number</TableHead>
                 <TableHead>Factory</TableHead>
                 <TableHead>Line</TableHead>
+                <TableHead>Operation</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -320,6 +361,7 @@ const OperatorManagement = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>Line {operator.line}</TableCell>
+                    <TableCell>{operator.operation || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Button 
@@ -343,7 +385,7 @@ const OperatorManagement = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     {searchTerm ? (
                       <div className="flex flex-col items-center gap-2">
                         <X className="h-8 w-8" />

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from './use-local-storage';
 import { DefectType, GarmentPart, Operator, RecordedDefect } from '@/lib/types';
@@ -19,13 +18,7 @@ export const useDefectSync = () => {
   // Initialize some operators if none exist
   useEffect(() => {
     if (operators.length === 0) {
-      const defaultOperators: Operator[] = [
-        { id: '1', name: 'Elena Rodriguez', epfNumber: 'EPF001', line: 'L1', factory: 'A6', operation: 'Sleeve Attach' },
-        { id: '2', name: 'Michael Chen', epfNumber: 'EPF002', line: 'L1', factory: 'A6', operation: 'Neck Binding' },
-        { id: '3', name: 'Aisha Patel', epfNumber: 'EPF003', line: 'L2', factory: 'A6', operation: 'Bottom Attach' },
-        { id: '4', name: 'Carlos Mendez', epfNumber: 'EPF004', line: 'L1', factory: 'C5', operation: 'Zipper' },
-      ];
-      setOperators(defaultOperators);
+      setOperators([]);
     }
   }, []);
   
@@ -241,7 +234,7 @@ export const useDefectSync = () => {
     setOperators(updatedOperators);
     
     toast.success("Operator added successfully", {
-      description: `${newOperator.name} (${newOperator.epfNumber}) added to ${newOperator.factory} - Line ${newOperator.line}`
+      description: `${newOperator.name} (${newOperator.epfNumber}) added to ${newOperator.factory} - Line ${newOperator.line}${newOperator.operation ? ` | Operation: ${newOperator.operation}` : ''}`
     });
     
     return newOperator;
@@ -279,7 +272,7 @@ export const useDefectSync = () => {
     const updatedOperator = updatedOperators.find(op => op.id === operatorId);
     
     toast.success("Operator updated successfully", {
-      description: `${updatedOperator?.name} updated`
+      description: `${updatedOperator?.name} updated${updatedOperator?.operation ? ` | Operation: ${updatedOperator.operation}` : ''}`
     });
     
     return updatedOperator;
@@ -316,12 +309,10 @@ export const useDefectSync = () => {
     return operators;
   };
   
-  // Get operator by ID
   const getOperatorById = (operatorId: string) => {
     return operators.find(op => op.id === operatorId) || null;
   };
   
-  // Function to get most common defect type
   const getTopDefectType = () => {
     const defectCounts = {} as Record<string, number>;
     
@@ -343,7 +334,6 @@ export const useDefectSync = () => {
     return recentDefects.find(d => d.defectType.code.toString() === topDefectCode)?.defectType || null;
   };
   
-  // Function to get most common garment part
   const getTopGarmentPart = () => {
     const partCounts = {} as Record<string, number>;
     
@@ -365,12 +355,10 @@ export const useDefectSync = () => {
     return recentDefects.find(d => d.garmentPart.code === topPartCode)?.garmentPart || null;
   };
   
-  // Get defects by operator
   const getDefectsByOperator = (operatorId: string) => {
     return recentDefects.filter(d => d.operatorId === operatorId);
   };
   
-  // Get defects by plant and line for incentive calculations
   const getDefectsByPlantAndLine = () => {
     const result = {} as Record<string, Record<string, RecordedDefect[]>>;
     
@@ -406,18 +394,60 @@ export const useDefectSync = () => {
     return result;
   };
   
-  // Get defects by operation
   const getDefectsByOperation = (operation: string) => {
     return recentDefects.filter(d => d.operation === operation);
   };
   
-  // Function to update dashboard data in localStorage
   const updateDashboardData = () => {
     // Implementation details kept minimal for brevity
     // This would typically update dashboard-related data in localStorage
+    
+    // Add additional analytics data for operations
+    const operationPerformance = {} as Record<string, { 
+      totalDefects: number, 
+      mostCommonDefect: DefectType | null,
+      defectsByType: Record<number, number>
+    }>;
+    
+    // Calculate operation performance metrics
+    recentDefects.forEach(defect => {
+      if (!defect.operation) return;
+      
+      if (!operationPerformance[defect.operation]) {
+        operationPerformance[defect.operation] = {
+          totalDefects: 0,
+          mostCommonDefect: null,
+          defectsByType: {}
+        };
+      }
+      
+      operationPerformance[defect.operation].totalDefects += 1;
+      
+      // Track defect types for this operation
+      const defectCode = defect.defectType.code;
+      operationPerformance[defect.operation].defectsByType[defectCode] = 
+        (operationPerformance[defect.operation].defectsByType[defectCode] || 0) + 1;
+      
+      // Update most common defect for this operation
+      let maxCount = 0;
+      let mostCommonDefectCode = 0;
+      
+      Object.entries(operationPerformance[defect.operation].defectsByType).forEach(([code, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          mostCommonDefectCode = parseInt(code);
+        }
+      });
+      
+      if (mostCommonDefectCode > 0) {
+        operationPerformance[defect.operation].mostCommonDefect = defect.defectType;
+      }
+    });
+    
+    // Save operation performance data
+    localStorage.setItem('operation-performance', JSON.stringify(operationPerformance));
   };
   
-  // Helper function to convert day abbreviation to index
   const getDayIndex = (dayAbbr: string) => {
     const map: Record<string, number> = {
       'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
@@ -425,7 +455,6 @@ export const useDefectSync = () => {
     return map[dayAbbr] !== undefined ? map[dayAbbr] : -1;
   };
   
-  // Group defects by factory
   const defectsByFactory = recentDefects.reduce((acc, defect) => {
     const factory = acc.find(f => f.id === defect.factoryId);
     if (factory) {
@@ -440,7 +469,6 @@ export const useDefectSync = () => {
     return acc;
   }, [] as Array<{id: string, name: string, defects: RecordedDefect[]}>);
   
-  // Group defects by production line
   const defectsByLine = recentDefects.reduce((acc, defect) => {
     const lineKey = `${defect.factoryId}-${defect.lineNumber}`;
     const line = acc.find(l => l.id === lineKey);
@@ -457,7 +485,6 @@ export const useDefectSync = () => {
     return acc;
   }, [] as Array<{id: string, factoryId: string, lineNumber: string, defects: RecordedDefect[]}>);
   
-  // Group defects by operation
   const defectsByOperation = recentDefects.reduce((acc, defect) => {
     if (!defect.operation) return acc;
     
@@ -474,20 +501,17 @@ export const useDefectSync = () => {
     return acc;
   }, [] as Array<{id: string, name: string, defects: RecordedDefect[]}>);
   
-  // Calculate important metrics
   const totalDefects = recentDefects.length;
   const verifiedDefects = recentDefects.filter(d => d.status === 'verified').length;
   const rejectedDefects = recentDefects.filter(d => d.status === 'rejected').length;
   const pendingDefects = recentDefects.filter(d => d.status === 'pending').length;
   const reworkedDefects = recentDefects.filter(d => d.reworked).length;
   
-  // Get the defect validation rate
   const getValidationRate = () => {
     if (totalDefects === 0) return 0;
     return (verifiedDefects / totalDefects) * 100;
   };
   
-  // Get defect stats for a specific plant
   const getPlantStats = (plantId: string) => {
     const plantDefects = recentDefects.filter(d => d.factoryId === plantId);
     
@@ -500,8 +524,16 @@ export const useDefectSync = () => {
     };
   };
   
-  // Get the allowed plants
   const getAllowedPlants = () => ALLOWED_PLANTS;
+  
+  const getOperationPerformance = () => {
+    const operationPerformance = JSON.parse(localStorage.getItem('operation-performance') || '{}');
+    return operationPerformance;
+  };
+  
+  const getOperatorsByOperation = (operation: string) => {
+    return operators.filter(op => op.operation === operation);
+  };
   
   return {
     recentDefects,
@@ -521,13 +553,13 @@ export const useDefectSync = () => {
     updateDashboardData,
     getPlantStats,
     getAllowedPlants,
-    // Added missing functions
     getTopDefectType,
     getTopGarmentPart,
     getDefectsByPlantAndLine,
     getDefectsByOperator,
     getDefectsByOperation,
-    // Operator management
+    getOperationPerformance,
+    getOperatorsByOperation,
     operators,
     addOperator,
     updateOperator,
