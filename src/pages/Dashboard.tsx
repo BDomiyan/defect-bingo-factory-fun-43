@@ -208,7 +208,8 @@ const Dashboard = () => {
         role: 'operator',
         score: 92,
         bingoCount: 3,
-        defectsFound: 45
+        defectsFound: 45,
+        operation: 'Sleeve Attach'
       },
       {
         id: '2',
@@ -216,7 +217,8 @@ const Dashboard = () => {
         role: 'supervisor',
         score: 78,
         bingoCount: 2,
-        defectsFound: 38
+        defectsFound: 38,
+        operation: 'Neck Binding'
       },
       {
         id: '3',
@@ -224,7 +226,8 @@ const Dashboard = () => {
         role: 'operator',
         score: 65,
         bingoCount: 1,
-        defectsFound: 29
+        defectsFound: 29,
+        operation: 'Bottom Attach'
       },
       {
         id: '4',
@@ -232,7 +235,8 @@ const Dashboard = () => {
         role: 'operator',
         score: 52,
         bingoCount: 1,
-        defectsFound: 24
+        defectsFound: 24,
+        operation: 'Zipper'
       }
     ];
     
@@ -253,16 +257,19 @@ const Dashboard = () => {
         name: `Demo Part ${i+1}`
       };
       
+      const randomOperator = demoPlayers[Math.floor(Math.random() * demoPlayers.length)];
+      
       addDefect({
         id: crypto.randomUUID(),
         defectType: randomDefectType,
         garmentPart: randomGarmentPart,
         timestamp: new Date().toISOString(),
-        operatorId: demoPlayers[Math.floor(Math.random() * demoPlayers.length)].id,
-        operatorName: demoPlayers[Math.floor(Math.random() * demoPlayers.length)].name,
+        operatorId: randomOperator.id,
+        operatorName: randomOperator.name,
         factoryId: FACTORIES[randomGarmentIndex].id,
         lineNumber: FACTORIES[randomGarmentIndex].lines[0],
         epfNumber: `EPF${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+        operation: randomOperator.operation,
         status: 'verified',
         reworked: Math.random() > 0.7
       });
@@ -306,6 +313,7 @@ const Dashboard = () => {
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {topPlayer.epfNumber && `EPF: ${topPlayer.epfNumber}`}
+                {topPlayer.operation && ` • Operation: ${topPlayer.operation}`}
               </div>
               <Progress value={(topPlayer.score / 100) * 100} className="h-2 mt-2" />
             </div>
@@ -331,6 +339,7 @@ const Dashboard = () => {
                         <div className="text-xs text-muted-foreground">
                           {player.defectsFound} defects · {player.bingoCount} bingos
                           {player.epfNumber && ` · EPF: ${player.epfNumber}`}
+                          {player.operation && ` · ${player.operation}`}
                         </div>
                       </div>
                     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,14 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   operatorName = ''
 }) => {
   const { user } = useAuth();
-  const { addDefect, recentDefects, getOperatorsByLine, getAllOperators } = useDefectSync();
+  const { 
+    addDefect, 
+    recentDefects, 
+    getOperatorsByLine, 
+    getAllOperators, 
+    getOperatorById 
+  } = useDefectSync();
+  
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
   const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'A6');
@@ -72,6 +80,22 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     setSelectedOperator('');
   }, [factoryId, lineNumber]);
 
+  // If operatorId is provided as prop, select that operator automatically
+  useEffect(() => {
+    if (operatorId) {
+      setSelectedOperator(operatorId);
+      const selectedOp = getOperatorById(operatorId);
+      if (selectedOp) {
+        setOperatorInput(selectedOp.name);
+        setOperatorIdInput(selectedOp.id);
+        setEpfNumber(selectedOp.epfNumber || '');
+        if (selectedOp.operation) {
+          setOperation(selectedOp.operation);
+        }
+      }
+    }
+  }, [operatorId]);
+
   const handleOperatorSelect = (operatorId: string) => {
     setSelectedOperator(operatorId);
     const selectedOp = operators.find(op => op.id === operatorId);
@@ -79,6 +103,9 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       setOperatorInput(selectedOp.name);
       setOperatorIdInput(selectedOp.id);
       setEpfNumber(selectedOp.epfNumber || '');
+      if (selectedOp.operation) {
+        setOperation(selectedOp.operation);
+      }
     }
   };
 
@@ -175,7 +202,8 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
             score: p.score + 5,
             epfNumber: defect.epfNumber || p.epfNumber,
             line: defect.lineNumber || p.line,
-            factory: defect.factoryId || p.factory
+            factory: defect.factoryId || p.factory,
+            operation: defect.operation || p.operation
           };
         }
         return p;
@@ -191,7 +219,8 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         defectsFound: 1,
         epfNumber: defect.epfNumber,
         line: defect.lineNumber,
-        factory: defect.factoryId
+        factory: defect.factoryId,
+        operation: defect.operation
       };
       localStorage.setItem('defect-bingo-players', JSON.stringify([...players, newPlayer]));
     }
@@ -274,7 +303,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
               {operators.length > 0 ? (
                 operators.map(op => (
                   <SelectItem key={op.id} value={op.id}>
-                    {op.name} - {op.epfNumber}
+                    {op.name} - {op.epfNumber} {op.operation ? `(${op.operation})` : ''}
                   </SelectItem>
                 ))
               ) : (
@@ -411,6 +440,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                       </span>
                       <div className="text-xs text-muted-foreground">
                         {defect.operatorName} • EPF: {defect.epfNumber || 'N/A'}
+                        {defect.operation && ` • ${defect.operation}`}
                       </div>
                     </div>
                   </div>

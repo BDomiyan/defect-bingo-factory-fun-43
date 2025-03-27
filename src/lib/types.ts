@@ -28,6 +28,7 @@ export interface Player {
   epfNumber?: string;
   line?: string;
   factory?: string;
+  operation?: string;
 }
 
 export interface Award {

@@ -19,11 +19,13 @@ import { useDefectSync } from '@/hooks/use-defect-sync';
 interface BingoBoardProps {
   boardSize?: number;
   playerName?: string;
+  operation?: string;
 }
 
 const BingoBoard: React.FC<BingoBoardProps> = ({ 
   boardSize = 5,
-  playerName = "Guest Player"
+  playerName = "Guest Player",
+  operation
 }) => {
   const [activeTab, setActiveTab] = useState("board");
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
@@ -208,7 +210,8 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           factoryId: 'A6',
           lineNumber: 'L1',
           epfNumber: 'N/A',
-          status: 'verified' as const,
+          operation: operation || undefined,
+          status: 'verified',
           reworked: false
         };
         
@@ -247,7 +250,8 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
             ...p,
             score: p.score + 10 + (newBingos * 50),
             defectsFound: p.defectsFound + 1,
-            bingoCount: p.bingoCount + newBingos
+            bingoCount: p.bingoCount + newBingos,
+            operation: operation || p.operation
           };
         }
         return p;
@@ -262,7 +266,8 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           role: 'operator',
           score: 10 + (newBingos * 50),
           bingoCount: newBingos,
-          defectsFound: 1
+          defectsFound: 1,
+          operation: operation
         }
       ]);
     }
@@ -349,6 +354,11 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         <p className="text-sm text-blue-100">
           Tap on any cell with a + sign to add a defect. Complete lines to win!
         </p>
+        {operation && (
+          <Badge className="mt-2 bg-indigo-400/20 border-indigo-300/40">
+            Operation: {operation}
+          </Badge>
+        )}
       </div>
       
       <div className="p-4">

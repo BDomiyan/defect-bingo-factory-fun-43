@@ -20,10 +20,10 @@ export const useDefectSync = () => {
   useEffect(() => {
     if (operators.length === 0) {
       const defaultOperators: Operator[] = [
-        { id: '1', name: 'Elena Rodriguez', epfNumber: 'EPF001', line: 'L1', factory: 'A6' },
-        { id: '2', name: 'Michael Chen', epfNumber: 'EPF002', line: 'L1', factory: 'A6' },
-        { id: '3', name: 'Aisha Patel', epfNumber: 'EPF003', line: 'L2', factory: 'A6' },
-        { id: '4', name: 'Carlos Mendez', epfNumber: 'EPF004', line: 'L1', factory: 'C5' },
+        { id: '1', name: 'Elena Rodriguez', epfNumber: 'EPF001', line: 'L1', factory: 'A6', operation: 'Sleeve Attach' },
+        { id: '2', name: 'Michael Chen', epfNumber: 'EPF002', line: 'L1', factory: 'A6', operation: 'Neck Binding' },
+        { id: '3', name: 'Aisha Patel', epfNumber: 'EPF003', line: 'L2', factory: 'A6', operation: 'Bottom Attach' },
+        { id: '4', name: 'Carlos Mendez', epfNumber: 'EPF004', line: 'L1', factory: 'C5', operation: 'Zipper' },
       ];
       setOperators(defaultOperators);
     }
@@ -148,7 +148,8 @@ export const useDefectSync = () => {
             score: p.score + 5,
             epfNumber: defect.epfNumber || p.epfNumber,
             line: defect.lineNumber || p.line,
-            factory: defect.factoryId || p.factory
+            factory: defect.factoryId || p.factory,
+            operation: defect.operation || p.operation
           };
         }
         return p;
@@ -165,7 +166,8 @@ export const useDefectSync = () => {
         defectsFound: 1,
         epfNumber: defect.epfNumber,
         line: defect.lineNumber,
-        factory: defect.factoryId
+        factory: defect.factoryId,
+        operation: defect.operation
       };
       localStorage.setItem('defect-bingo-players', JSON.stringify([...players, newPlayer]));
     }
@@ -314,6 +316,11 @@ export const useDefectSync = () => {
     return operators;
   };
   
+  // Get operator by ID
+  const getOperatorById = (operatorId: string) => {
+    return operators.find(op => op.id === operatorId) || null;
+  };
+  
   // Function to get most common defect type
   const getTopDefectType = () => {
     const defectCounts = {} as Record<string, number>;
@@ -358,6 +365,11 @@ export const useDefectSync = () => {
     return recentDefects.find(d => d.garmentPart.code === topPartCode)?.garmentPart || null;
   };
   
+  // Get defects by operator
+  const getDefectsByOperator = (operatorId: string) => {
+    return recentDefects.filter(d => d.operatorId === operatorId);
+  };
+  
   // Get defects by plant and line for incentive calculations
   const getDefectsByPlantAndLine = () => {
     const result = {} as Record<string, Record<string, RecordedDefect[]>>;
@@ -392,6 +404,11 @@ export const useDefectSync = () => {
     });
     
     return result;
+  };
+  
+  // Get defects by operation
+  const getDefectsByOperation = (operation: string) => {
+    return recentDefects.filter(d => d.operation === operation);
   };
   
   // Function to update dashboard data in localStorage
@@ -440,6 +457,23 @@ export const useDefectSync = () => {
     return acc;
   }, [] as Array<{id: string, factoryId: string, lineNumber: string, defects: RecordedDefect[]}>);
   
+  // Group defects by operation
+  const defectsByOperation = recentDefects.reduce((acc, defect) => {
+    if (!defect.operation) return acc;
+    
+    const operation = acc.find(o => o.name === defect.operation);
+    if (operation) {
+      operation.defects.push(defect);
+    } else {
+      acc.push({
+        id: defect.operation,
+        name: defect.operation,
+        defects: [defect],
+      });
+    }
+    return acc;
+  }, [] as Array<{id: string, name: string, defects: RecordedDefect[]}>);
+  
   // Calculate important metrics
   const totalDefects = recentDefects.length;
   const verifiedDefects = recentDefects.filter(d => d.status === 'verified').length;
@@ -477,6 +511,7 @@ export const useDefectSync = () => {
     markAsReworked,
     defectsByFactory,
     defectsByLine,
+    defectsByOperation,
     totalDefects,
     verifiedDefects,
     rejectedDefects,
@@ -490,6 +525,8 @@ export const useDefectSync = () => {
     getTopDefectType,
     getTopGarmentPart,
     getDefectsByPlantAndLine,
+    getDefectsByOperator,
+    getDefectsByOperation,
     // Operator management
     operators,
     addOperator,
@@ -497,6 +534,7 @@ export const useDefectSync = () => {
     removeOperator,
     getOperatorsByLine,
     getOperatorsByFactory,
-    getAllOperators
+    getAllOperators,
+    getOperatorById
   };
 };
