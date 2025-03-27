@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, XCircle, Eye, Award } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Award, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BingoCell } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -101,7 +101,7 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
                 </Badge>
                 line on their Bingo board.
               </p>
-              <p className="text-muted-foreground mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Please verify that all defects in this line are valid before approving.
               </p>
             </AlertDialogDescription>
@@ -135,7 +135,7 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
           
           <AlertDialogFooter className="gap-2 sm:gap-0 mt-4">
             <AlertDialogCancel asChild>
-              <Button variant="outline" className="flex items-center gap-1">
+              <Button variant="outline" className="flex items-center gap-1" onClick={handleReject}>
                 <XCircle className="h-4 w-4 text-destructive" />
                 Reject Line
               </Button>
@@ -154,7 +154,7 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="bg-black/80 text-white p-8 rounded-lg animate-scale-in">
             <div className="text-center">
-              <Award className="h-20 w-20 text-yellow-500 mx-auto mb-4 animate-bounce" />
+              <PartyPopper className="h-20 w-20 text-yellow-500 mx-auto mb-4 animate-bounce" />
               <h2 className="text-2xl font-bold mb-2">Award Earned!</h2>
               <p className="text-lg mb-4">Lightning Spotter</p>
               <p className="text-sm opacity-80">First to complete a Bingo line</p>

@@ -35,7 +35,7 @@ const Index = () => {
           </h1>
           
           <p className="text-muted-foreground max-w-[42rem] leading-normal sm:text-xl sm:leading-8">
-            Improve quality awareness through friendly competition and real-time defect tracking.
+            Improve quality awareness through friendly competition and real-time defect tracking across 13 factories.
           </p>
           
           <div className="flex gap-2 mt-6">
@@ -115,6 +115,7 @@ const Index = () => {
                       <li>Falsely marked defects will result in penalties</li>
                       <li>A "Bingo" is achieved by completing any row, column, or diagonal</li>
                       <li>Full board completion earns bonus points</li>
+                      <li>Combo points awarded for finding multiple defects quickly</li>
                     </ul>
                   </div>
                   

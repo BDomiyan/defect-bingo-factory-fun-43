@@ -148,4 +148,74 @@
       animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
   }
+  
+  .animate-scale-in {
+    animation: scale-in 0.5s ease-out forwards;
+  }
+  
+  @keyframes scale-in {
+    from {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  .confetti-animation {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    pointer-events: none;
+  }
+  
+  .confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 30px;
+    background: #ffd300;
+    top: 0;
+    opacity: 0;
+  }
+  
+  .confetti-piece:nth-child(1) {
+    left: 7%;
+    transform: rotate(-40deg);
+    animation: makeItRain 1000ms infinite ease-out;
+    animation-delay: 182ms;
+    animation-duration: 1116ms;
+  }
+  
+  .confetti-piece:nth-child(2) {
+    left: 14%;
+    transform: rotate(4deg);
+    animation: makeItRain 1000ms infinite ease-out;
+    animation-delay: 161ms;
+    animation-duration: 1076ms;
+  }
+  
+  .confetti-piece:nth-child(3) {
+    left: 21%;
+    transform: rotate(-51deg);
+    animation: makeItRain 1000ms infinite ease-out;
+    animation-delay: 481ms;
+    animation-duration: 1103ms;
+  }
+  
+  @keyframes makeItRain {
+    from {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+    to {
+      transform: translateY(1000px);
+    }
+  }
 }
