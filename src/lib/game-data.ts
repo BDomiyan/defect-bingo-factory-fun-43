@@ -1,215 +1,225 @@
-import { GarmentPart, DefectType, Award, BingoBoard } from "./types";
 
+import { GarmentPart, DefectType } from '@/lib/types';
+
+// List of all garment parts
 export const GARMENT_PARTS: GarmentPart[] = [
-  { code: "A", name: "Label Attach" },
-  { code: "B", name: "Neck Binding" },
-  { code: "C", name: "Sleeve Attach" },
-  { code: "D", name: "Side Seam" },
-  { code: "E", name: "Side Seam" },
-  { code: "F", name: "Zipper Bar Tack" },
-  { code: "G", name: "Sleeve Tack" },
-  { code: "H", name: "Croch Attach" },
-  { code: "I", name: "Foot Attach" },
-  { code: "J", name: "Heat Seal" },
-  { code: "K", name: "Zipper Outline" },
-  { code: "L", name: "In Seam" },
-  { code: "M", name: "Neck Tack" },
-  { code: "N", name: "Bottom Attach" },
-  { code: "O", name: "Sleeve Dart" },
-  { code: "P", name: "Sleeve Cuff" },
-  { code: "Q", name: "Tab" },
-  { code: "R", name: "Foot Bartack" },
-  { code: "S", name: "Box Tack" },
-  { code: "T", name: "Top Foot" },
-  { code: "U", name: "Elastic" },
-  { code: "V", name: "Zipper" },
-  { code: "W", name: "Facing Tack" },
-  { code: "X", name: "Bottom Binding" },
+  { code: 'SL', name: 'Sleeve' },
+  { code: 'CL', name: 'Collar' },
+  { code: 'CF', name: 'Cuff' },
+  { code: 'PK', name: 'Pocket' },
+  { code: 'SH', name: 'Shoulder' },
+  { code: 'YK', name: 'Yoke' },
+  { code: 'FS', name: 'Front Seam' },
+  { code: 'BS', name: 'Back Seam' },
+  { code: 'SS', name: 'Side Seam' },
+  { code: 'HM', name: 'Hem' },
+  { code: 'BT', name: 'Button' },
+  { code: 'BH', name: 'Buttonhole' },
+  { code: 'LB', name: 'Label' },
+  { code: 'ZP', name: 'Zipper' },
+  { code: 'WB', name: 'Waistband' },
+  { code: 'CP', name: 'Center Panel' },
+  { code: 'EP', name: 'Elbow Patch' },
+  { code: 'HD', name: 'Hood' },
+  { code: 'PL', name: 'Placket' },
+  { code: 'TB', name: 'Tab' },
 ];
 
+// List of all defect types
 export const DEFECT_TYPES: DefectType[] = [
-  { code: 1, name: "Printing / MBRO" },
-  { code: 2, name: "Slubs / Holes" },
-  { code: 3, name: "Color Shading" },
-  { code: 4, name: "Broken Stitches" },
-  { code: 5, name: "Slip Stitches" },
-  { code: 6, name: "SPI" },
-  { code: 7, name: "Puckering" },
-  { code: 8, name: "Loose Tensions" },
-  { code: 9, name: "Snap Defects" },
-  { code: 10, name: "High-Low" },
-  { code: 11, name: "Uneven Edge" },
-  { code: 12, name: "Needle Mark" },
-  { code: 13, name: "Open Seam" },
-  { code: 14, name: "Pleats" },
-  { code: 15, name: "Missing Stitches" },
-  { code: 16, name: "Skip Stitches" },
-  { code: 17, name: "Incorrect Label" },
-  { code: 18, name: "Wrong Placement" },
-  { code: 19, name: "Looseness" },
-  { code: 20, name: "Cut Damage" },
-  { code: 21, name: "Stain" },
-  { code: 22, name: "Oil Marks" },
-  { code: 23, name: "Stickers" },
-  { code: 24, name: "Uncut Thread" },
+  { code: 1, name: 'Broken Stitch' },
+  { code: 2, name: 'Skip Stitch' },
+  { code: 3, name: 'Open Seam' },
+  { code: 4, name: 'Raw Edge' },
+  { code: 5, name: 'Puckering' },
+  { code: 6, name: 'Oil Stain' },
+  { code: 7, name: 'Dirt Mark' },
+  { code: 8, name: 'Needle Mark' },
+  { code: 9, name: 'Uneven Stitch' },
+  { code: 10, name: 'Loose Thread' },
+  { code: 11, name: 'Wrong Measurement' },
+  { code: 12, name: 'Wrong Position' },
+  { code: 13, name: 'Missing Component' },
+  { code: 14, name: 'Color Variation' },
+  { code: 15, name: 'Pleating' },
+  { code: 16, name: 'Incorrect Trim' },
+  { code: 17, name: 'Hole' },
+  { code: 18, name: 'Run-off' },
+  { code: 19, name: 'Twisted Seam' },
+  { code: 20, name: 'Uneven Hem' },
 ];
 
-// Updated common defect pairs with more realistic mappings
-export const COMMON_DEFECT_PAIRS: { garmentCode: string; defectCodes: number[] }[] = [
-  { garmentCode: "A", defectCodes: [17, 18, 21, 22] }, // Label Attach
-  { garmentCode: "B", defectCodes: [4, 7, 8, 13] }, // Neck Binding
-  { garmentCode: "C", defectCodes: [12, 15, 16, 18] }, // Sleeve Attach
-  { garmentCode: "D", defectCodes: [2, 11, 13, 20] }, // Side Seam
-  { garmentCode: "E", defectCodes: [2, 11, 13, 20] }, // Side Seam
-  { garmentCode: "F", defectCodes: [4, 15, 16, 24] }, // Zipper Bar Tack
-  { garmentCode: "G", defectCodes: [5, 16, 24] }, // Sleeve Tack
-  { garmentCode: "H", defectCodes: [2, 4, 13, 20] }, // Croch Attach
-  { garmentCode: "I", defectCodes: [4, 6, 8, 24] }, // Foot Attach
-  { garmentCode: "J", defectCodes: [3, 18, 21] }, // Heat Seal
-  { garmentCode: "K", defectCodes: [4, 7, 13, 19] }, // Zipper Outline
-  { garmentCode: "L", defectCodes: [4, 7, 11, 13] }, // In Seam
-  { garmentCode: "M", defectCodes: [4, 5, 16, 24] }, // Neck Tack
-  { garmentCode: "N", defectCodes: [4, 6, 8, 24] }, // Bottom Attach
-  { garmentCode: "O", defectCodes: [7, 14, 15, 19] }, // Sleeve Dart
-  { garmentCode: "P", defectCodes: [4, 8, 11, 24] }, // Sleeve Cuff
-  { garmentCode: "Q", defectCodes: [5, 16, 18, 19] }, // Tab
-  { garmentCode: "R", defectCodes: [4, 15, 16, 24] }, // Foot Bartack
-  { garmentCode: "S", defectCodes: [4, 15, 16, 24] }, // Box Tack
-  { garmentCode: "T", defectCodes: [2, 4, 13, 20] }, // Top Foot
-  { garmentCode: "U", defectCodes: [8, 10, 19] }, // Elastic
-  { garmentCode: "V", defectCodes: [10, 18, 19, 20] }, // Zipper
-  { garmentCode: "W", defectCodes: [4, 5, 16, 24] }, // Facing Tack
-  { garmentCode: "X", defectCodes: [4, 6, 8, 24] }, // Bottom Binding
-];
-
-export const AWARDS: Award[] = [
-  {
-    id: "lightning-spotter",
-    name: "Lightning Spotter",
-    description: "Awarded to the first checker with Bingo",
-    icon: "zap",
-    recipients: []
-  },
-  {
-    id: "eagle-eye",
-    name: "Eagle Eye",
-    description: "Awarded to the second fastest Bingo",
-    icon: "eye",
-    recipients: []
-  },
-  {
-    id: "master-detective",
-    name: "Master Detective",
-    description: "Awarded to the third fastest Bingo",
-    icon: "search",
-    recipients: []
-  },
-  {
-    id: "guardian-of-quality",
-    name: "Guardian of Quality",
-    description: "Monthly recognition for most defects identified",
-    icon: "shield",
-    recipients: []
-  }
-];
-
-// Approved factory list - only A6, C5, M1
+// Factory data
 export const FACTORIES = [
-  { id: 'A6', name: 'Plant A6', lines: ['L1', 'L2', 'L3', 'L4'] },
-  { id: 'C5', name: 'Plant C5', lines: ['L1', 'L2', 'L3'] },
-  { id: 'M1', name: 'Plant M1', lines: ['L1', 'L2', 'L3', 'L4', 'L5'] }
+  {
+    id: 'A6',
+    name: 'Plant A6',
+    lines: ['L1', 'L2', 'L3', 'L4', 'L5'],
+    location: 'Colombo',
+    manager: 'Sarah Johnson'
+  },
+  {
+    id: 'C5',
+    name: 'Plant C5',
+    lines: ['L1', 'L2', 'L3'],
+    location: 'Gampaha',
+    manager: 'David Lee'
+  },
+  {
+    id: 'M1',
+    name: 'Plant M1',
+    lines: ['L1', 'L2', 'L3', 'L4'],
+    location: 'Kandy',
+    manager: 'Maria Rodriguez'
+  },
+  {
+    id: 'B7',
+    name: 'Plant B7',
+    lines: ['L1', 'L2', 'L3'],
+    location: 'Negombo',
+    manager: 'James Wilson'
+  },
+  {
+    id: 'D2',
+    name: 'Plant D2',
+    lines: ['L1', 'L2'],
+    location: 'Galle',
+    manager: 'Lisa Chen'
+  },
+  {
+    id: 'E4',
+    name: 'Plant E4',
+    lines: ['L1', 'L2', 'L3', 'L4'],
+    location: 'Jaffna',
+    manager: 'Robert Kim'
+  },
+  {
+    id: 'F8',
+    name: 'Plant F8',
+    lines: ['L1', 'L2', 'L3'],
+    location: 'Matara',
+    manager: 'Emily Patel'
+  },
+  {
+    id: 'G3',
+    name: 'Plant G3',
+    lines: ['L1', 'L2', 'L3', 'L4', 'L5'],
+    location: 'Batticaloa',
+    manager: 'Michael Zhang'
+  },
+  {
+    id: 'H9',
+    name: 'Plant H9',
+    lines: ['L1', 'L2'],
+    location: 'Trincomalee',
+    manager: 'Sophia Gupta'
+  },
+  {
+    id: 'J5',
+    name: 'Plant J5',
+    lines: ['L1', 'L2', 'L3'],
+    location: 'Anuradhapura',
+    manager: 'Daniel Martinez'
+  },
+  {
+    id: 'K1',
+    name: 'Plant K1',
+    lines: ['L1', 'L2', 'L3', 'L4'],
+    location: 'Kurunegala',
+    manager: 'Isabella Wong'
+  },
+  {
+    id: 'L6',
+    name: 'Plant L6',
+    lines: ['L1', 'L2', 'L3'],
+    location: 'Ratnapura',
+    manager: 'William Brown'
+  },
+  {
+    id: 'N2',
+    name: 'Plant N2',
+    lines: ['L1', 'L2'],
+    location: 'Badulla',
+    manager: 'Olivia Nakamura'
+  }
 ];
 
-export const MOCK_PLAYERS: any[] = [
+// Operations data
+export const OPERATIONS = [
+  { id: 'OP01', name: 'Cutting' },
+  { id: 'OP02', name: 'Front Placket Attach' },
+  { id: 'OP03', name: 'Collar Making' },
+  { id: 'OP04', name: 'Collar Attach' },
+  { id: 'OP05', name: 'Sleeve Hemming' },
+  { id: 'OP06', name: 'Sleeve Attach' },
+  { id: 'OP07', name: 'Cuff Making' },
+  { id: 'OP08', name: 'Cuff Attach' },
+  { id: 'OP09', name: 'Side Seam' },
+  { id: 'OP10', name: 'Bottom Hemming' },
+  { id: 'OP11', name: 'Button Attach' },
+  { id: 'OP12', name: 'Buttonhole' },
+  { id: 'OP13', name: 'Label Attach' },
+  { id: 'OP14', name: 'Thread Trimming' },
+  { id: 'OP15', name: 'Ironing' },
+  { id: 'OP16', name: 'Final Inspection' },
+  { id: 'OP17', name: 'Packing' }
+];
+
+// Incentive levels - For use in the incentive configuration
+export const INCENTIVE_LEVELS = [
   {
-    id: "p1",
-    name: "Sarah Johnson",
-    role: "operator",
-    score: 285,
-    bingoCount: 3,
-    defectsFound: 42
+    level: 1,
+    name: 'Bronze',
+    threshold: 10,
+    reward: '50 Points',
+    icon: 'Award'
   },
   {
-    id: "p2",
-    name: "Michael Chen",
-    role: "operator",
-    score: 320,
-    bingoCount: 4,
-    defectsFound: 38
+    level: 2,
+    name: 'Silver',
+    threshold: 25,
+    reward: '150 Points + Recognition Certificate',
+    icon: 'Award'
   },
   {
-    id: "p3",
-    name: "Elena Rodriguez",
-    role: "supervisor",
-    score: 410,
-    bingoCount: 5,
-    defectsFound: 53
+    level: 3,
+    name: 'Gold',
+    threshold: 50,
+    reward: '300 Points + Quality Champion Badge',
+    icon: 'Trophy'
   },
   {
-    id: "p4",
-    name: "James Wilson",
-    role: "operator",
-    score: 270,
-    bingoCount: 3,
-    defectsFound: 36
-  },
-  {
-    id: "p5",
-    name: "Aisha Patel",
-    role: "operator",
-    score: 305,
-    bingoCount: 3,
-    defectsFound: 45
+    level: 4,
+    name: 'Platinum',
+    threshold: 100,
+    reward: '500 Points + Quality Elite Status',
+    icon: 'Medal'
   }
 ];
 
-// Improved bingo checking function
-export const checkForBingo = (board: BingoBoard): string[] => {
-  const size = board.length;
-  const bingos: string[] = [];
-  
-  // Check rows
-  for (let i = 0; i < size; i++) {
-    if (board[i].every(cell => cell.marked && cell.garmentPart && cell.defectType)) {
-      bingos.push(`row-${i}`);
-    }
+// Bingo rewards
+export const BINGO_REWARDS = [
+  {
+    type: 'row',
+    points: 25,
+    description: 'Complete any horizontal row'
+  },
+  {
+    type: 'column',
+    points: 25,
+    description: 'Complete any vertical column'
+  },
+  {
+    type: 'diagonal',
+    points: 40,
+    description: 'Complete any diagonal line'
+  },
+  {
+    type: 'fullBoard',
+    points: 200,
+    description: 'Complete the entire board'
   }
-  
-  // Check columns
-  for (let j = 0; j < size; j++) {
-    if (board.every(row => row[j].marked && row[j].garmentPart && row[j].defectType)) {
-      bingos.push(`col-${j}`);
-    }
-  }
-  
-  // Check diagonal (top-left to bottom-right)
-  if (Array.from({ length: size }, (_, i) => board[i][i]).every(cell => 
-    cell.marked && cell.garmentPart && cell.defectType
-  )) {
-    bingos.push('diag-1');
-  }
-  
-  // Check diagonal (top-right to bottom-left)
-  if (Array.from({ length: size }, (_, i) => board[i][size - 1 - i]).every(cell => 
-    cell.marked && cell.garmentPart && cell.defectType
-  )) {
-    bingos.push('diag-2');
-  }
-  
-  return bingos;
-};
+];
 
-// Calculates the percentage of cells completed on the board
-export const calculateCompletion = (board: BingoBoard): number => {
-  const totalCells = board.length * board[0].length;
-  const markedCells = board.flat().filter(cell => cell.marked).length;
-  return Math.round((markedCells / totalCells) * 100);
-};
-
-// Validates if a defect and garment part combination is valid
-export const isValidCombination = (garmentPart: GarmentPart, defectType: DefectType): boolean => {
-  const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
-  if (!pair) return true; // If no specific rules, allow any combination
-  
-  return pair.defectCodes.includes(defectType.code);
-};
+// Define the bingo board size
+export const BOARD_SIZE = 5;

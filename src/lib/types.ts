@@ -25,6 +25,9 @@ export interface Player {
   score: number;
   bingoCount: number;
   defectsFound: number;
+  epfNumber?: string;
+  line?: string;
+  factory?: string;
 }
 
 export interface Award {
@@ -43,4 +46,30 @@ export interface DragItem {
   type: 'defect' | 'garment' | 'cell';
   id: string;
   data: DefectType | GarmentPart;
+}
+
+export interface Operator {
+  id: string;
+  name: string;
+  epfNumber: string;
+  line: string;
+  factory: string;
+  operation?: string;
+}
+
+export interface RecordedDefect {
+  id: string;
+  defectType: DefectType;
+  garmentPart: GarmentPart;
+  timestamp: string;
+  operatorId: string;
+  operatorName: string;
+  factoryId: string;
+  lineNumber: string;
+  epfNumber: string;
+  operation?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  reworked: boolean;
+  reworkTime?: number;
+  supervisorComment?: string;
 }

@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle, User, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Header from '@/components/Header';
@@ -32,6 +33,8 @@ import BingoBoard from '@/components/BingoBoard';
 import IncentiveConfig from '@/components/IncentiveConfig';
 import { useDefectSync } from '@/hooks/use-defect-sync';
 import { FACTORIES } from '@/lib/game-data';
+import SupervisorValidation from '@/components/SupervisorValidation';
+import OperatorManagement from '@/components/OperatorManagement';
 
 const defaultLineData = [
   { day: 'Mon', count: 0 },
@@ -85,7 +88,7 @@ const Dashboard = () => {
   const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
   const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 0);
   const [recentlyRecordedDefect, setRecentlyRecordedDefect] = useState<any | null>(null);
-  const { recentDefects, addDefect, totalDefects } = useDefectSync();
+  const { recentDefects, addDefect, totalDefects, verifiedDefects, pendingDefects, rejectedDefects } = useDefectSync();
   
   const avgDefectsPerPlayer = players.length ? Math.round(totalDefects / players.length) : 0;
   const topPlayer = [...players].sort((a, b) => b.score - a.score)[0] || defaultPlayers[0];
@@ -301,6 +304,9 @@ const Dashboard = () => {
                 <div className="text-muted-foreground">Defects found: {topPlayer.defectsFound}</div>
                 <div className="text-muted-foreground">Bingos: {topPlayer.bingoCount}</div>
               </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {topPlayer.epfNumber && `EPF: ${topPlayer.epfNumber}`}
+              </div>
               <Progress value={(topPlayer.score / 100) * 100} className="h-2 mt-2" />
             </div>
           
@@ -324,6 +330,7 @@ const Dashboard = () => {
                         <div className="font-medium">{player.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {player.defectsFound} defects · {player.bingoCount} bingos
+                          {player.epfNumber && ` · EPF: ${player.epfNumber}`}
                         </div>
                       </div>
                     </div>
@@ -460,31 +467,32 @@ const Dashboard = () => {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="space-y-1">
                 <CardTitle className="text-sm font-medium">
-                  AQL Success Rate
+                  Validation Rate
                 </CardTitle>
-                <CardDescription>This month</CardDescription>
+                <CardDescription>Defect verification</CardDescription>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                 <PieChartIcon className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalDefects > 0 ? '92%' : '0%'}</div>
-              <div className="mt-1 flex items-center text-xs text-muted-foreground">
-                <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
-                <span className="text-green-500 mr-1">+8.7%</span>
-                from last month
+              <div className="text-2xl font-bold">
+                {totalDefects > 0 ? ((verifiedDefects / totalDefects) * 100).toFixed(0) + '%' : '0%'}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground flex flex-col">
+                <span>{verifiedDefects} verified • {pendingDefects} pending • {rejectedDefects} rejected</span>
               </div>
             </CardContent>
           </Card>
         </div>
         
         <Tabs defaultValue="defect-detection" className="mt-6" onValueChange={setActiveTab}>
-          <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:grid-cols-4 sm:inline-flex">
+          <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:grid-cols-5 sm:inline-flex">
             <TabsTrigger value="defect-detection">Defect Recording</TabsTrigger>
+            <TabsTrigger value="supervisor">Supervisor</TabsTrigger>
             <TabsTrigger value="trends">Quality Trends</TabsTrigger>
             <TabsTrigger value="factory-metrics">Factory Metrics</TabsTrigger>
-            <TabsTrigger value="incentives">Incentives</TabsTrigger>
+            <TabsTrigger value="operators">Operators</TabsTrigger>
           </TabsList>
           
           <TabsContent value="defect-detection" className="mt-4">
@@ -544,6 +552,31 @@ const Dashboard = () => {
                             <div className="font-medium">{recentlyRecordedDefect.operatorName}</div>
                           </div>
                           <div>
+                            <span className="text-muted-foreground">EPF Number:</span>
+                            <div className="font-medium">{recentlyRecordedDefect.epfNumber || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <div className="font-medium flex items-center">
+                              {recentlyRecordedDefect.status === 'verified' ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
+                                  Verified
+                                </>
+                              ) : recentlyRecordedDefect.status === 'rejected' ? (
+                                <>
+                                  <XCircle className="h-3 w-3 text-red-500 mr-1" />
+                                  Rejected
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle className="h-3 w-3 text-amber-500 mr-1" />
+                                  Pending
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div>
                             <span className="text-muted-foreground">Time:</span>
                             <div className="font-medium">
                               {new Date(recentlyRecordedDefect.timestamp).toLocaleTimeString()}
@@ -583,6 +616,10 @@ const Dashboard = () => {
                 <BingoBoard />
               </div>
             </div>
+          </TabsContent>
+          
+          <TabsContent value="supervisor" className="mt-4">
+            <SupervisorValidation />
           </TabsContent>
           
           <TabsContent value="trends" className="mt-4">
@@ -693,10 +730,10 @@ const Dashboard = () => {
             <FactoryMetrics />
           </TabsContent>
           
-          <TabsContent value="incentives" className="mt-4">
+          <TabsContent value="operators" className="mt-4">
             <div className="grid md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <IncentiveConfig />
+                <OperatorManagement />
               </div>
               <div>
                 <Card className="shadow-md">

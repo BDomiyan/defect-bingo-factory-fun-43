@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, AlertTriangle, Save, Loader2, Calendar } from "lucide-react";
+import { Check, Clock, AlertTriangle, Save, Loader2, Calendar, Award, Confetti } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,37 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFECT_TYPES, GARMENT_PARTS, FACTORIES } from '@/lib/game-data';
+import { DEFECT_TYPES, GARMENT_PARTS, FACTORIES, OPERATIONS } from '@/lib/game-data';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { DefectType, GarmentPart } from '@/lib/types';
+import { DefectType, GarmentPart, RecordedDefect } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { format } from 'date-fns';
 import { useDefectSync } from '@/hooks/use-defect-sync';
 
-interface RecordedDefect {
-  id: string;
-  defectType: DefectType;
-  garmentPart: GarmentPart;
-  timestamp: string;
-  operatorId: string;
-  operatorName: string;
-  factoryId: string;
-  lineNumber: string;
-  status: 'pending' | 'verified' | 'rejected';
-  reworked: boolean;
-  reworkTime?: number;
-}
-
-interface FactoryData {
-  id: string;
-  name: string;
-  lines: string[];
-}
-
 interface DefectRecorderProps {
   onDefectRecorded?: (defect: RecordedDefect) => void;
-  factoryList?: FactoryData[];
+  factoryList?: typeof FACTORIES;
   operatorId?: string;
   operatorName?: string;
 }
@@ -53,15 +34,20 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   operatorName = ''
 }) => {
   const { user } = useAuth();
-  const { addDefect, recentDefects } = useDefectSync();
+  const { addDefect, recentDefects, getOperatorsByLine, getAllOperators } = useDefectSync();
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
   const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'A6');
   const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || 'L1');
   const [operatorInput, setOperatorInput] = useState<string>(operatorName || user?.name || '');
   const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');
+  const [epfNumber, setEpfNumber] = useState<string>('');
+  const [operation, setOperation] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentDate] = useState(new Date());
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [operators, setOperators] = useState<any[]>([]);
+  const [selectedOperator, setSelectedOperator] = useState<string>('');
   
   const actualFactoryList = user?.plant 
     ? [user.plant, ...factoryList.filter(f => f.id !== user.plantId)]
@@ -76,13 +62,46 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     if (user?.lineNumber) {
       setLineNumber(user.lineNumber);
     }
-  }, [user]);
+
+    // Load operators for this line
+    const lineOperators = getOperatorsByLine(factoryId, lineNumber);
+    setOperators(lineOperators);
+  }, [user, factoryId, lineNumber]);
+
+  useEffect(() => {
+    // When line or factory changes, update operators list
+    const lineOperators = getOperatorsByLine(factoryId, lineNumber);
+    setOperators(lineOperators);
+    setSelectedOperator('');
+  }, [factoryId, lineNumber]);
+
+  // Handle operator selection from dropdown
+  const handleOperatorSelect = (operatorId: string) => {
+    setSelectedOperator(operatorId);
+    const selectedOp = operators.find(op => op.id === operatorId);
+    if (selectedOp) {
+      setOperatorInput(selectedOp.name);
+      setOperatorIdInput(selectedOp.id);
+      setEpfNumber(selectedOp.epfNumber || '');
+    }
+  };
 
   const resetForm = () => {
     setDefectType('');
     setGarmentPart('');
-    if (!operatorId && !user?.employeeId) setOperatorIdInput('');
-    if (!operatorName && !user?.name) setOperatorInput('');
+    if (!selectedOperator) {
+      setOperatorIdInput('');
+      setOperatorInput('');
+      setEpfNumber('');
+      setOperation('');
+    }
+  };
+
+  const triggerSuccessAnimation = () => {
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 3000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -116,7 +135,9 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         operatorName: operatorInput || user?.name || 'Guest User',
         factoryId,
         lineNumber,
-        status: 'verified',
+        epfNumber: epfNumber || 'N/A',
+        operation: operation || undefined,
+        status: 'pending', // Changed to pending for supervisor validation
         reworked: false
       };
       
@@ -128,8 +149,14 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       
       updatePlayerStats(newDefect);
       
-      toast.success("Defect recorded successfully", {
-        description: `${selectedGarmentPart.name} - ${selectedDefectType.name}`
+      triggerSuccessAnimation();
+      
+      toast.success("Defect recorded successfully!", {
+        description: `${selectedGarmentPart.name} - ${selectedDefectType.name}`,
+        action: {
+          label: "View",
+          onClick: () => console.log("Viewed defect", newDefect.id)
+        }
       });
       
       resetForm();
@@ -149,7 +176,10 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           return {
             ...p,
             defectsFound: p.defectsFound + 1,
-            score: p.score + 5
+            score: p.score + 5,
+            epfNumber: defect.epfNumber || p.epfNumber,
+            line: defect.lineNumber || p.line,
+            factory: defect.factoryId || p.factory
           };
         }
         return p;
@@ -162,14 +192,25 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         role: 'operator',
         score: 5,
         bingoCount: 0,
-        defectsFound: 1
+        defectsFound: 1,
+        epfNumber: defect.epfNumber,
+        line: defect.lineNumber,
+        factory: defect.factoryId
       };
       localStorage.setItem('defect-bingo-players', JSON.stringify([...players, newPlayer]));
     }
   };
 
   return (
-    <div className="w-full bg-card rounded-lg border shadow-md overflow-hidden">
+    <div className="w-full bg-card rounded-lg border shadow-md overflow-hidden relative">
+      {showConfetti && (
+        <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+          <div className="animate-confetti-explosion">
+            <Confetti className="h-16 w-16 text-primary animate-spin" />
+          </div>
+        </div>
+      )}
+      
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-4 border-b">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-white text-lg">Quick Defect Recorder</h3>
@@ -178,7 +219,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
             {format(currentDate, 'MMM dd, yyyy')}
           </Badge>
         </div>
-        <p className="text-sm text-blue-100">Record defects as you find them in real-time</p>
+        <p className="text-sm text-blue-100">Record defects to earn points and complete your Bingo board!</p>
       </div>
       
       <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -224,19 +265,31 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           </div>
         </div>
         
-        {(!operatorId && !user) && (
+        <div className="space-y-2">
+          <Label htmlFor="operator" className="text-blue-800">Operator</Label>
+          <Select
+            value={selectedOperator}
+            onValueChange={handleOperatorSelect}
+          >
+            <SelectTrigger id="operator" className="border-blue-200">
+              <SelectValue placeholder="Select operator" />
+            </SelectTrigger>
+            <SelectContent>
+              {operators.length > 0 ? (
+                operators.map(op => (
+                  <SelectItem key={op.id} value={op.id}>
+                    {op.name} - {op.epfNumber}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="none" disabled>No operators found</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {(!selectedOperator && !user) && (
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="operatorId" className="text-blue-800">Operator ID</Label>
-              <Input 
-                id="operatorId" 
-                value={operatorIdInput} 
-                onChange={e => setOperatorIdInput(e.target.value)}
-                placeholder="Enter operator ID"
-                className="border-blue-200"
-              />
-            </div>
-            
             <div className="space-y-2">
               <Label htmlFor="operatorName" className="text-blue-800">Operator Name</Label>
               <Input 
@@ -247,8 +300,38 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 className="border-blue-200"
               />
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="epfNumber" className="text-blue-800">EPF Number</Label>
+              <Input 
+                id="epfNumber" 
+                value={epfNumber} 
+                onChange={e => setEpfNumber(e.target.value)}
+                placeholder="Enter EPF No."
+                className="border-blue-200"
+              />
+            </div>
           </div>
         )}
+        
+        <div className="space-y-2">
+          <Label htmlFor="operation" className="text-blue-800">Operation</Label>
+          <Select 
+            value={operation} 
+            onValueChange={setOperation}
+          >
+            <SelectTrigger id="operation" className="border-blue-200">
+              <SelectValue placeholder="Select operation" />
+            </SelectTrigger>
+            <SelectContent>
+              {OPERATIONS.map(op => (
+                <SelectItem key={op.id} value={op.id}>
+                  {op.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -286,7 +369,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         
         <Button 
           type="submit" 
-          className="w-full bg-gradient-button hover:opacity-90 transition-opacity h-12" 
+          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-opacity h-12 group" 
           disabled={isSubmitting}
         >
           {isSubmitting ? (
@@ -296,7 +379,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
             </>
           ) : (
             <>
-              <Save className="mr-2 h-5 w-5" />
+              <Save className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
               Record Defect
             </>
           )}
@@ -326,12 +409,22 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                     ) : (
                       <Clock className="h-4 w-4 text-amber-500" />
                     )}
-                    <span className="font-medium text-blue-900">
-                      {defect.garmentPart.name} - {defect.defectType.name}
-                    </span>
+                    <div>
+                      <span className="font-medium text-blue-900">
+                        {defect.garmentPart.name} - {defect.defectType.name}
+                      </span>
+                      <div className="text-xs text-muted-foreground">
+                        {defect.operatorName} • EPF: {defect.epfNumber || 'N/A'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(defect.timestamp).toLocaleTimeString()}
+                  <div className="text-xs text-muted-foreground flex flex-col items-end">
+                    <span>{new Date(defect.timestamp).toLocaleTimeString()}</span>
+                    {defect.status === 'pending' && (
+                      <Badge variant="outline" className="mt-1 bg-amber-50 text-amber-700 border-amber-200">
+                        Awaiting Validation
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))

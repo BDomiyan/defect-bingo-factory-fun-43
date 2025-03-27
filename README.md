@@ -11,6 +11,7 @@ A gamified quality management application that improves garment defect detection
 - **Supervisor Validation**: QC supervisors can verify completed bingo lines to ensure accuracy
 - **Leaderboards & Incentives**: Recognition system to motivate operators through gamification
 - **Multi-Factory Support**: Designed to work across all 13 factories with consistent data sharing
+- **Operator Management**: Admin can add, edit, and remove operators with their EPF numbers and details
 
 ## Getting Started
 
@@ -23,9 +24,9 @@ A gamified quality management application that improves garment defect detection
 
 1. QC operators can record defects when found on the production floor
 2. Each defect consists of a Garment Part + Defect Type combination
-3. Operators can drag-and-drop or select pairs to mark cells on their bingo board
-4. When a row, column, or diagonal is completed, a bingo is achieved
-5. Supervisors validate the bingo line to ensure accuracy
+3. Operators provide their name, EPF number, and select their operation
+4. Supervisors validate recorded defects to ensure accuracy
+5. When a row, column, or diagonal is completed, a bingo is achieved
 6. Points are awarded for validated defects and completed bingo lines
 
 ## Game Features
@@ -35,6 +36,17 @@ A gamified quality management application that improves garment defect detection
 - **Penalties**: Invalid defects can result in penalties
 - **Challenges**: Daily and weekly challenges for bonus points
 - **Awards**: Special recognition for top performers
+- **Supervisor Validation**: All defects are pending until validated by supervisors
+- **EPF Number Tracking**: Operators are identified by unique EPF numbers
+- **Operation Selection**: Defects are linked to specific operations in the production process
+
+## Operator Management
+
+- **Add Operators**: Admins can add new operators with their EPF numbers
+- **Edit Details**: Update operator information including name, EPF, factory, and line
+- **Factory Assignment**: Assign operators to specific factories and production lines
+- **Search**: Quickly find operators by name, EPF, factory, or line
+- **Line Configuration**: Organize operators by production line for easy management
 
 ## Technical Information
 
