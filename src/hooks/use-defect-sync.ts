@@ -1,28 +1,12 @@
+
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from './use-local-storage';
-import { DefectType, GarmentPart, Operator } from '@/lib/types';
+import { DefectType, GarmentPart, Operator, RecordedDefect } from '@/lib/types';
 import { toast } from 'sonner';
 import { FACTORIES } from '@/lib/game-data';
 
 // Define the allowed plants
 const ALLOWED_PLANTS = ['A6', 'C5', 'M1', 'B7', 'D2', 'E4', 'F8', 'G3', 'H9', 'J5', 'K1', 'L6', 'N2'];
-
-interface RecordedDefect {
-  id: string;
-  defectType: DefectType;
-  garmentPart: GarmentPart;
-  timestamp: string;
-  operatorId: string;
-  operatorName: string;
-  factoryId: string;
-  lineNumber: string;
-  epfNumber: string;
-  operation?: string;
-  status: 'pending' | 'verified' | 'rejected';
-  reworked: boolean;
-  reworkTime?: number;
-  supervisorComment?: string;
-}
 
 /**
  * Custom hook to synchronize defect data across all components
@@ -330,87 +314,90 @@ export const useDefectSync = () => {
     return operators;
   };
   
+  // Function to get most common defect type
+  const getTopDefectType = () => {
+    const defectCounts = {} as Record<string, number>;
+    
+    recentDefects.forEach(defect => {
+      const defectCode = defect.defectType.code.toString();
+      defectCounts[defectCode] = (defectCounts[defectCode] || 0) + 1;
+    });
+    
+    let topDefectCode = '';
+    let topCount = 0;
+    
+    for (const [code, count] of Object.entries(defectCounts)) {
+      if (count > topCount) {
+        topCount = count;
+        topDefectCode = code;
+      }
+    }
+    
+    return recentDefects.find(d => d.defectType.code.toString() === topDefectCode)?.defectType || null;
+  };
+  
+  // Function to get most common garment part
+  const getTopGarmentPart = () => {
+    const partCounts = {} as Record<string, number>;
+    
+    recentDefects.forEach(defect => {
+      const partCode = defect.garmentPart.code;
+      partCounts[partCode] = (partCounts[partCode] || 0) + 1;
+    });
+    
+    let topPartCode = '';
+    let topCount = 0;
+    
+    for (const [code, count] of Object.entries(partCounts)) {
+      if (count > topCount) {
+        topCount = count;
+        topPartCode = code;
+      }
+    }
+    
+    return recentDefects.find(d => d.garmentPart.code === topPartCode)?.garmentPart || null;
+  };
+  
+  // Get defects by plant and line for incentive calculations
+  const getDefectsByPlantAndLine = () => {
+    const result = {} as Record<string, Record<string, RecordedDefect[]>>;
+    
+    // Initialize the allowed plants
+    ALLOWED_PLANTS.forEach(plantId => {
+      result[plantId] = {};
+      // Get factory info
+      const factory = FACTORIES.find(f => f.id === plantId);
+      // Initialize with available lines
+      if (factory) {
+        factory.lines.forEach(line => {
+          result[plantId][line] = [];
+        });
+      } else {
+        // Default lines if factory not found
+        ['L1', 'L2', 'L3', 'L4'].forEach(line => {
+          result[plantId][line] = [];
+        });
+      }
+    });
+    
+    // Populate with actual defects
+    recentDefects.forEach(defect => {
+      if (ALLOWED_PLANTS.includes(defect.factoryId)) {
+        if (!result[defect.factoryId][defect.lineNumber]) {
+          result[defect.factoryId][defect.lineNumber] = [];
+        }
+        
+        result[defect.factoryId][defect.lineNumber].push(defect);
+      }
+    });
+    
+    return result;
+  };
+  
   // Function to update dashboard data in localStorage
   const updateDashboardData = () => {
-    // Get most common defect type
-    const getTopDefectType = () => {
-      const defectCounts = {} as Record<string, number>;
-      
-      recentDefects.forEach(defect => {
-        const defectCode = defect.defectType.code.toString();
-        defectCounts[defectCode] = (defectCounts[defectCode] || 0) + 1;
-      });
-      
-      let topDefectCode = '';
-      let topCount = 0;
-      
-      for (const [code, count] of Object.entries(defectCounts)) {
-        if (count > topCount) {
-          topCount = count;
-          topDefectCode = code;
-        }
-      }
-      
-      return recentDefects.find(d => d.defectType.code.toString() === topDefectCode)?.defectType || null;
-    };
-    
-    // Get most common garment part
-    const getTopGarmentPart = () => {
-      const partCounts = {} as Record<string, number>;
-      
-      recentDefects.forEach(defect => {
-        const partCode = defect.garmentPart.code;
-        partCounts[partCode] = (partCounts[partCode] || 0) + 1;
-      });
-      
-      let topPartCode = '';
-      let topCount = 0;
-      
-      for (const [code, count] of Object.entries(partCounts)) {
-        if (count > topCount) {
-          topCount = count;
-          topPartCode = code;
-        }
-      }
-      
-      return recentDefects.find(d => d.garmentPart.code === topPartCode)?.garmentPart || null;
-    };
-    
-    // Get defects by plant and line for incentive calculations
-    const getDefectsByPlantAndLine = () => {
-      const result = {} as Record<string, Record<string, RecordedDefect[]>>;
-      
-      // Initialize the allowed plants
-      ALLOWED_PLANTS.forEach(plantId => {
-        result[plantId] = {};
-        // Get factory info
-        const factory = FACTORIES.find(f => f.id === plantId);
-        // Initialize with available lines
-        if (factory) {
-          factory.lines.forEach(line => {
-            result[plantId][line] = [];
-          });
-        } else {
-          // Default lines if factory not found
-          ['L1', 'L2', 'L3', 'L4'].forEach(line => {
-            result[plantId][line] = [];
-          });
-        }
-      });
-      
-      // Populate with actual defects
-      recentDefects.forEach(defect => {
-        if (ALLOWED_PLANTS.includes(defect.factoryId)) {
-          if (!result[defect.factoryId][defect.lineNumber]) {
-            result[defect.factoryId][defect.lineNumber] = [];
-          }
-          
-          result[defect.factoryId][defect.lineNumber].push(defect);
-        }
-      });
-      
-      return result;
-    };
+    // Implementation details kept minimal for brevity
+    // This would typically update dashboard-related data in localStorage
   };
   
   // Helper function to convert day abbreviation to index
@@ -499,6 +486,10 @@ export const useDefectSync = () => {
     updateDashboardData,
     getPlantStats,
     getAllowedPlants,
+    // Added missing functions
+    getTopDefectType,
+    getTopGarmentPart,
+    getDefectsByPlantAndLine,
     // Operator management
     operators,
     addOperator,

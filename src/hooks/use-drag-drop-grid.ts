@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { BingoBoard, GarmentPart, DefectType } from '@/lib/types';
-import { COMMON_DEFECT_PAIRS } from '@/lib/game-data';
+import { COMMON_DEFECT_PAIRS, isValidCombination } from '@/lib/game-data';
 
 interface UseDragDropGridProps {
   boardSize: number;
@@ -36,10 +36,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
 
   // Check if the defect and garment part combination is valid based on common pairs
   const isValidDefectPair = useCallback((garmentPart: GarmentPart, defectType: DefectType) => {
-    const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
-    if (!pair) return true; // If no specific rules, allow any combination
-    
-    return pair.defectCodes.includes(defectType.code);
+    return isValidCombination(garmentPart, defectType);
   }, []);
 
   // Handle starting to drag an item (either defect or garment part)

@@ -223,3 +223,71 @@ export const BINGO_REWARDS = [
 
 // Define the bingo board size
 export const BOARD_SIZE = 5;
+
+// Common defect pairs - Mapping garment parts to their common defect types
+export const COMMON_DEFECT_PAIRS = [
+  { garmentCode: 'SL', defectCodes: [1, 2, 3, 4, 9, 10, 11, 19] }, // Sleeve
+  { garmentCode: 'CL', defectCodes: [1, 2, 5, 9, 10, 11, 12, 15] }, // Collar
+  { garmentCode: 'CF', defectCodes: [1, 2, 3, 5, 9, 10, 11] }, // Cuff
+  { garmentCode: 'PK', defectCodes: [1, 2, 3, 4, 9, 10, 12] }, // Pocket
+  { garmentCode: 'SH', defectCodes: [1, 2, 3, 9, 19] }, // Shoulder
+  { garmentCode: 'YK', defectCodes: [1, 2, 3, 4, 9, 10, 11] }, // Yoke
+  { garmentCode: 'FS', defectCodes: [1, 2, 3, 4, 5, 9, 10, 19] }, // Front Seam
+  { garmentCode: 'BS', defectCodes: [1, 2, 3, 4, 5, 9, 10, 19] }, // Back Seam
+  { garmentCode: 'SS', defectCodes: [1, 2, 3, 4, 5, 9, 10, 19] }, // Side Seam
+  { garmentCode: 'HM', defectCodes: [1, 2, 3, 4, 5, 9, 10, 20] }, // Hem
+  { garmentCode: 'BT', defectCodes: [10, 11, 12, 13] }, // Button
+  { garmentCode: 'BH', defectCodes: [1, 2, 9, 11, 13, 17] }, // Buttonhole
+  { garmentCode: 'LB', defectCodes: [12, 13, 14] }, // Label
+  { garmentCode: 'ZP', defectCodes: [3, 9, 12, 13, 18] }, // Zipper
+  { garmentCode: 'WB', defectCodes: [1, 2, 3, 4, 5, 9, 10, 11, 12] }, // Waistband
+  { garmentCode: 'CP', defectCodes: [1, 2, 3, 4, 5, 6, 7, 9, 10, 14] }, // Center Panel
+  { garmentCode: 'EP', defectCodes: [1, 2, 3, 9, 10, 12] }, // Elbow Patch
+  { garmentCode: 'HD', defectCodes: [1, 2, 3, 4, 5, 9, 10, 12] }, // Hood
+  { garmentCode: 'PL', defectCodes: [1, 2, 3, 4, 9, 10, 12] }, // Placket
+  { garmentCode: 'TB', defectCodes: [1, 2, 3, 9, 10, 12, 16] }, // Tab
+];
+
+// Awards for players
+export const AWARDS = [
+  {
+    id: 'a1',
+    name: 'Quality Champion',
+    description: 'Found 50+ defects in a month',
+    icon: 'Trophy',
+    recipients: []
+  },
+  {
+    id: 'a2',
+    name: 'Bingo Master',
+    description: 'Completed 10+ bingo lines',
+    icon: 'Award',
+    recipients: []
+  },
+  {
+    id: 'a3',
+    name: 'Eagle Eye',
+    description: 'Found 5 defects in a single day',
+    icon: 'Eye',
+    recipients: []
+  },
+  {
+    id: 'a4',
+    name: 'Team Leader',
+    description: 'Helped team achieve highest quality score',
+    icon: 'Users',
+    recipients: []
+  }
+];
+
+// Function to check if a defect type and garment part combination is valid
+export const isValidCombination = (garmentPart: GarmentPart, defectType: DefectType): boolean => {
+  // Find the garment part in the common defect pairs
+  const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
+  
+  // If no specific rules for this garment part, consider all combinations valid
+  if (!pair) return true;
+  
+  // Check if the defect code is in the list of common defects for this garment part
+  return pair.defectCodes.includes(defectType.code);
+};
