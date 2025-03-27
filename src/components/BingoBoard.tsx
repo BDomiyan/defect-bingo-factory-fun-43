@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
 import DefectModal from '@/components/DefectModal';
@@ -8,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle, Confetti } from 'lucide-react';
+import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle, PartyPopper } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -34,7 +33,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const { addDefect } = useDefectSync();
   
-  // Initialize the drag and drop grid
   const { 
     board, 
     setBoard, 
@@ -52,7 +50,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     onBingo: (newLines) => handleBingo(newLines)
   });
   
-  // Update isMobile state when window is resized
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -62,19 +59,16 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Update board completion whenever board changes
   useEffect(() => {
     setBoardCompletion(getBoardCompletion());
     setBingoLines(completedLines.length);
   }, [board, completedLines]);
   
-  // Handle cell click to open the modal
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     setSelectedCell({ rowIndex, colIndex });
     setModalOpen(true);
   };
   
-  // Find the next empty cell
   const findNextEmptyCell = () => {
     for (let i = 0; i < boardSize; i++) {
       for (let j = 0; j < boardSize; j++) {
@@ -87,16 +81,13 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     return null;
   };
   
-  // Handle bingo event
   const handleBingo = (newLines: Array<{type: string, index: number}>) => {
     if (newLines.length > 0) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
       
-      // Update player stats
       updatePlayerStats(newLines.length);
       
-      // Check for full board
       const allCellsMarked = board.every(row => row.every(cell => cell.marked));
       if (allCellsMarked) {
         toast.success("FULL BOARD BINGO!", {
@@ -105,17 +96,14 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           icon: <Trophy className="h-5 w-5 text-yellow-400" />
         });
         
-        // Add extra points for full board
         updatePlayerStats(1);
       }
     }
   };
   
-  // Handle validating a defect
   const handleValidateDefect = (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
     if (!selectedCell || !isValid || !garmentPart || !defectType) return;
     
-    // Add the selected defect and garment part to the cell
     const pairIsValid = addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
     
     if (!pairIsValid) {
@@ -124,7 +112,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       });
     }
     
-    // Mark the cell as validated
     const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
     
     if (success) {
@@ -132,7 +119,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         description: "Cell marked as validated"
       });
       
-      // Record the defect in the central system
       const defectRecord = {
         id: crypto.randomUUID(),
         defectType: defectType,
@@ -140,16 +126,14 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         timestamp: new Date().toISOString(),
         operatorId: crypto.randomUUID(),
         operatorName: playerName,
-        factoryId: 'A6', // Default factory
-        lineNumber: 'L1', // Default line
+        factoryId: 'A6',
+        lineNumber: 'L1',
         status: 'verified' as const,
         reworked: false
       };
       
-      // Add defect to the central system
       addDefect(defectRecord);
       
-      // Find next empty cell and automatically select it after a short delay
       setTimeout(() => {
         const nextCell = findNextEmptyCell();
         if (nextCell) {
@@ -167,7 +151,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     setSelectedCell(null);
   };
   
-  // Update player stats based on new bingos
   const updatePlayerStats = (newBingos: number) => {
     if (newBingos <= 0) return;
     
@@ -186,7 +169,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       });
       setPlayers(updatedPlayers);
     } else {
-      // Create new player record if doesn't exist
       setPlayers([
         ...players,
         {
@@ -200,11 +182,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       ]);
     }
     
-    // Update global leaderboard with new bingoLines count
     localStorage.setItem('current-bingo-lines', (bingoLines + newBingos).toString());
   };
   
-  // Handle board reset
   const handleReset = () => {
     resetBoard();
     setBingoLines(0);
@@ -214,7 +194,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     });
   };
   
-  // Prepare data for drag and drop
   const renderDragDropItems = () => {
     return (
       <div className="grid grid-cols-2 gap-4 mt-4">
@@ -256,14 +235,13 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     );
   };
   
-  // Render confetti animation when bingo happens
   const renderConfetti = () => {
     if (!showConfetti) return null;
     
     return (
       <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
         <div className="absolute">
-          <Confetti className="h-40 w-40 text-primary animate-pulse" />
+          <PartyPopper className="h-40 w-40 text-primary animate-pulse" />
         </div>
         <div className="text-4xl font-bold text-primary animate-bounce">
           BINGO!
@@ -428,7 +406,6 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         </Tabs>
       </div>
       
-      {/* Defect selection modal */}
       <DefectModal
         isOpen={modalOpen}
         onClose={() => {
