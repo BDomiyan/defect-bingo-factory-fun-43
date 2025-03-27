@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import BingoCard from '@/components/BingoCard';
 import DefectModal from '@/components/DefectModal';
+import SupervisorNotification from '@/components/SupervisorNotification';
 import { useDragDropGrid } from '@/hooks/use-drag-drop-grid';
 import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,7 @@ import { Sparkles, Trophy, RefreshCcw, Plus, CheckCircle, PartyPopper } from 'lu
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType } from '@/lib/types';
+import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType, BingoCell } from '@/lib/types';
 import { useDefectSync } from '@/hooks/use-defect-sync';
 
 interface BingoBoardProps {
@@ -31,6 +33,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [boardCompletion, setBoardCompletion] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [supervisorModalOpen, setSupervisorModalOpen] = useState(false);
+  const [currentCompletedLine, setCurrentCompletedLine] = useState<{type: string, index: number} | null>(null);
+  const [completedLineCells, setCompletedLineCells] = useState<BingoCell[]>([]);
   const { addDefect } = useDefectSync();
   
   const { 
@@ -62,7 +67,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   useEffect(() => {
     setBoardCompletion(getBoardCompletion());
     setBingoLines(completedLines.length);
-  }, [board, completedLines]);
+  }, [board, completedLines, getBoardCompletion]);
   
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     setSelectedCell({ rowIndex, colIndex });
@@ -81,10 +86,40 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     return null;
   };
   
+  const getCellsForLine = (line: {type: string, index: number}): BingoCell[] => {
+    const cells: BingoCell[] = [];
+    
+    if (line.type === 'row') {
+      for (let j = 0; j < boardSize; j++) {
+        cells.push(board[line.index][j]);
+      }
+    } else if (line.type === 'column') {
+      for (let i = 0; i < boardSize; i++) {
+        cells.push(board[i][line.index]);
+      }
+    } else if (line.type === 'diagonal' && line.index === 1) {
+      for (let i = 0; i < boardSize; i++) {
+        cells.push(board[i][i]);
+      }
+    } else if (line.type === 'diagonal' && line.index === 2) {
+      for (let i = 0; i < boardSize; i++) {
+        cells.push(board[i][boardSize - 1 - i]);
+      }
+    }
+    
+    return cells;
+  };
+  
   const handleBingo = (newLines: Array<{type: string, index: number}>) => {
     if (newLines.length > 0) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
+      
+      // Show supervisor notification for the first line
+      const firstLine = newLines[0];
+      setCurrentCompletedLine(firstLine);
+      setCompletedLineCells(getCellsForLine(firstLine));
+      setSupervisorModalOpen(true);
       
       updatePlayerStats(newLines.length);
       
@@ -101,8 +136,53 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     }
   };
   
+  const handleSupervisorValidation = (isValid: boolean) => {
+    if (isValid) {
+      toast.success("Bingo line validated by supervisor!", {
+        description: "Points awarded to your account",
+        duration: 5000,
+      });
+    } else {
+      // Unmark cells in the line if not valid
+      if (currentCompletedLine) {
+        const newBoard = [...board];
+        
+        if (currentCompletedLine.type === 'row') {
+          newBoard[currentCompletedLine.index] = newBoard[currentCompletedLine.index].map(cell => ({
+            ...cell,
+            marked: false
+          }));
+        } else if (currentCompletedLine.type === 'column') {
+          for (let i = 0; i < boardSize; i++) {
+            newBoard[i][currentCompletedLine.index] = {
+              ...newBoard[i][currentCompletedLine.index],
+              marked: false
+            };
+          }
+        } else if (currentCompletedLine.type === 'diagonal' && currentCompletedLine.index === 1) {
+          for (let i = 0; i < boardSize; i++) {
+            newBoard[i][i] = {
+              ...newBoard[i][i],
+              marked: false
+            };
+          }
+        } else if (currentCompletedLine.type === 'diagonal' && currentCompletedLine.index === 2) {
+          for (let i = 0; i < boardSize; i++) {
+            newBoard[i][boardSize - 1 - i] = {
+              ...newBoard[i][boardSize - 1 - i],
+              marked: false
+            };
+          }
+        }
+        
+        setBoard(newBoard);
+        setBingoLines(prevLines => Math.max(0, prevLines - 1));
+      }
+    }
+  };
+  
   const handleValidateDefect = (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
-    if (!selectedCell || !isValid || !garmentPart || !defectType) return;
+    if (!selectedCell || !garmentPart || !defectType) return;
     
     const pairIsValid = addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
     
@@ -112,38 +192,44 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       });
     }
     
-    const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
-    
-    if (success) {
-      toast.success("Defect validated!", {
-        description: "Cell marked as validated"
-      });
+    if (isValid) {
+      const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
       
-      const defectRecord = {
-        id: crypto.randomUUID(),
-        defectType: defectType,
-        garmentPart: garmentPart,
-        timestamp: new Date().toISOString(),
-        operatorId: crypto.randomUUID(),
-        operatorName: playerName,
-        factoryId: 'A6',
-        lineNumber: 'L1',
-        status: 'verified' as const,
-        reworked: false
-      };
-      
-      addDefect(defectRecord);
-      
-      setTimeout(() => {
-        const nextCell = findNextEmptyCell();
-        if (nextCell) {
-          setSelectedCell(nextCell);
-          setModalOpen(true);
-        }
-      }, 1000);
+      if (success) {
+        toast.success("Defect validated!", {
+          description: "Cell marked as validated"
+        });
+        
+        const defectRecord = {
+          id: crypto.randomUUID(),
+          defectType: defectType,
+          garmentPart: garmentPart,
+          timestamp: new Date().toISOString(),
+          operatorId: crypto.randomUUID(),
+          operatorName: playerName,
+          factoryId: 'A6',
+          lineNumber: 'L1',
+          status: 'verified' as const,
+          reworked: false
+        };
+        
+        addDefect(defectRecord);
+        
+        setTimeout(() => {
+          const nextCell = findNextEmptyCell();
+          if (nextCell) {
+            setSelectedCell(nextCell);
+            setModalOpen(true);
+          }
+        }, 1000);
+      } else {
+        toast.error("Cannot validate this cell", {
+          description: "There was an error validating the defect"
+        });
+      }
     } else {
-      toast.error("Cannot validate this cell", {
-        description: "There was an error validating the defect"
+      toast.error("Invalid defect combination", {
+        description: "This combination is not valid for this garment part"
       });
     }
     
@@ -414,6 +500,15 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
         }}
         onValidate={handleValidateDefect}
         cell={selectedCell ? board[selectedCell.rowIndex][selectedCell.colIndex] : null}
+      />
+      
+      <SupervisorNotification
+        isOpen={supervisorModalOpen}
+        onClose={() => setSupervisorModalOpen(false)}
+        completedLine={currentCompletedLine}
+        cells={completedLineCells}
+        playerName={playerName}
+        onValidate={handleSupervisorValidation}
       />
     </div>
   );

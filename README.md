@@ -1,69 +1,53 @@
-# Welcome to your Lovable project
 
-## Project info
+# Jay Jay Quality - Defect Bingo
 
-**URL**: https://lovable.dev/projects/f29705f2-6683-4e78-ab3f-b148d665f157
+A gamified quality management application that improves garment defect detection through interactive bingo games and real-time quality monitoring.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Defect Bingo Game**: Interactive bingo board where QC operators mark defects to complete lines and win rewards
+- **Real-time Defect Recording**: Quick and intuitive interface to record and validate defects as they are discovered
+- **Quality Performance Dashboards**: Comprehensive analytics with charts and metrics to track defect patterns
+- **Supervisor Validation**: QC supervisors can verify completed bingo lines to ensure accuracy
+- **Leaderboards & Incentives**: Recognition system to motivate operators through gamification
 
-**Use Lovable**
+## Getting Started
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f29705f2-6683-4e78-ab3f-b148d665f157) and start prompting.
+1. Clone this repository
+2. Install dependencies: `npm install`
+3. Start the development server: `npm run dev`
+4. Visit `http://localhost:5173` in your browser
 
-Changes made via Lovable will be committed automatically to this repo.
+## How to Play
 
-**Use your preferred IDE**
+1. QC operators can record defects when found on the production floor
+2. Each defect consists of a Garment Part + Defect Type combination
+3. Operators can drag-and-drop or select pairs to mark cells on their bingo board
+4. When a row, column, or diagonal is completed, a bingo is achieved
+5. Supervisors validate the bingo line to ensure accuracy
+6. Points are awarded for validated defects and completed bingo lines
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Technical Information
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Built with React, TypeScript, and Vite
+- Styled with Tailwind CSS and shadcn/ui components
+- Real-time metrics and analytics
+- Mobile-responsive design
 
-Follow these steps:
+## Project Structure
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- `/src/components`: UI components for the application
+- `/src/hooks`: Custom React hooks for state management
+- `/src/lib`: Utility functions and data models
+- `/src/pages`: Main application pages
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Factories
 
-# Step 3: Install the necessary dependencies.
-npm i
+The application is configured for use in the following factories:
+- A6: Plant A6
+- C5: Plant C5
+- M1: Plant M1
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## License
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/f29705f2-6683-4e78-ab3f-b148d665f157) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+© 2023 Jay Jay Quality. All rights reserved.

@@ -1,4 +1,3 @@
-
 import { GarmentPart, DefectType, Award, BingoBoard } from "./types";
 
 export const GARMENT_PARTS: GarmentPart[] = [
@@ -112,6 +111,13 @@ export const AWARDS: Award[] = [
     icon: "shield",
     recipients: []
   }
+];
+
+// Approved factory list - only A6, C5, M1
+export const FACTORIES = [
+  { id: 'A6', name: 'Plant A6', lines: ['L1', 'L2', 'L3', 'L4'] },
+  { id: 'C5', name: 'Plant C5', lines: ['L1', 'L2', 'L3'] },
+  { id: 'M1', name: 'Plant M1', lines: ['L1', 'L2', 'L3', 'L4', 'L5'] }
 ];
 
 export const MOCK_PLAYERS: any[] = [

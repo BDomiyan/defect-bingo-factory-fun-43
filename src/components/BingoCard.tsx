@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { BingoCell } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Move, Plus, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Move, Plus, AlertTriangle, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { isValidCombination } from '@/lib/game-data';
@@ -54,6 +54,7 @@ const BingoCard = ({
       const timer = setTimeout(() => {
         setIsTouchActive(false);
       }, 1000);
+      
       return () => clearTimeout(timer);
     }
   }, [isTouchActive]);
@@ -204,6 +205,11 @@ const BingoCard = ({
             <div className="absolute inset-0 flex items-center justify-center bg-background/0">
               <div className="absolute inset-0 bg-primary/5 animate-pulse-subtle"></div>
               <CheckCircle className="h-8 w-8 text-primary opacity-80" />
+              {isBingoLine && (
+                <div className="absolute top-0 right-0 m-1">
+                  <Award className="h-3 w-3 text-yellow-500" />
+                </div>
+              )}
             </div>
           )}
           

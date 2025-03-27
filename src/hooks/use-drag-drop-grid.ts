@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { BingoBoard, GarmentPart, DefectType } from '@/lib/types';
 import { COMMON_DEFECT_PAIRS } from '@/lib/game-data';
@@ -12,7 +12,7 @@ interface UseDragDropGridProps {
 
 export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDropGridProps) => {
   // Initialize an empty board
-  const initializeEmptyBoard = () => {
+  const initializeEmptyBoard = useCallback(() => {
     const board: BingoBoard = [];
     for (let i = 0; i < boardSize; i++) {
       const row = [];
@@ -25,7 +25,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
       board.push(row);
     }
     return board;
-  };
+  }, [boardSize]);
 
   const [board, setBoard] = useState<BingoBoard>(initializeEmptyBoard());
   const [draggedItem, setDraggedItem] = useState<{
@@ -35,33 +35,33 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
   const [completedLines, setCompletedLines] = useState<Array<{type: string, index: number}>>([]);
 
   // Check if the defect and garment part combination is valid based on common pairs
-  const isValidDefectPair = (garmentPart: GarmentPart, defectType: DefectType) => {
+  const isValidDefectPair = useCallback((garmentPart: GarmentPart, defectType: DefectType) => {
     const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
     if (!pair) return true; // If no specific rules, allow any combination
     
     return pair.defectCodes.includes(defectType.code);
-  };
+  }, []);
 
   // Handle starting to drag an item (either defect or garment part)
-  const handleDragStart = (type: 'defect' | 'garment', data: DefectType | GarmentPart) => {
+  const handleDragStart = useCallback((type: 'defect' | 'garment', data: DefectType | GarmentPart) => {
     setDraggedItem({ type, data });
     // Set the drag operation as successful
     return true;
-  };
+  }, []);
 
   // Handle dragging over a cell
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     // Necessary to allow dropping
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  };
+  }, []);
 
   // Handle dropping an item onto a cell
-  const handleDrop = (rowIndex: number, colIndex: number) => {
+  const handleDrop = useCallback((rowIndex: number, colIndex: number) => {
     if (!draggedItem || !draggedItem.data) return;
     
     // Create a copy of the board
-    const newBoard = [...board.map(row => [...row])];
+    const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
     
     // Update the cell with the dragged item data
     if (draggedItem.type === 'defect') {
@@ -109,15 +109,15 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     
     // Reset the dragged item
     setDraggedItem(null);
-  };
+  }, [board, draggedItem, isValidDefectPair, onBoardChange]);
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedItem(null);
-  };
+  }, []);
   
   // Add both defect type and garment part to a cell
-  const addDefectToCell = (rowIndex: number, colIndex: number, garmentPart: GarmentPart, defectType: DefectType) => {
-    const newBoard = [...board.map(row => [...row])];
+  const addDefectToCell = useCallback((rowIndex: number, colIndex: number, garmentPart: GarmentPart, defectType: DefectType) => {
+    const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
     
     // Check if it's a valid pair before adding
     const isValid = isValidDefectPair(garmentPart, defectType);
@@ -135,10 +135,10 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     }
     
     return isValid;
-  };
+  }, [board, isValidDefectPair, onBoardChange]);
 
   // Mark a cell as validated
-  const markCell = (rowIndex: number, colIndex: number, playerName: string) => {
+  const markCell = useCallback((rowIndex: number, colIndex: number, playerName: string) => {
     // Only mark cells that have both garment part and defect type
     if (!board[rowIndex][colIndex].garmentPart || !board[rowIndex][colIndex].defectType) {
       toast.error("Cell is incomplete", {
@@ -158,7 +158,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
       return false;
     }
 
-    const newBoard = [...board.map(row => [...row])];
+    const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
     newBoard[rowIndex][colIndex] = {
       ...newBoard[rowIndex][colIndex],
       marked: true,
@@ -173,30 +173,30 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     }
     
     // Check for bingo after marking the cell
-    const newCompletedLines = checkForBingo(newBoard);
+    checkForBingo(newBoard);
     
     return true;
-  };
+  }, [board, isValidDefectPair, onBoardChange]);
 
   // Reset the board to empty cells
-  const resetBoard = () => {
+  const resetBoard = useCallback(() => {
     const emptyBoard = initializeEmptyBoard();
     setBoard(emptyBoard);
     setCompletedLines([]);
     if (onBoardChange) {
       onBoardChange(emptyBoard);
     }
-  };
+  }, [initializeEmptyBoard, onBoardChange]);
   
   // Calculate board completion percentage
-  const getBoardCompletion = () => {
+  const getBoardCompletion = useCallback(() => {
     const totalCells = boardSize * boardSize;
     const filledCells = board.flat().filter(cell => cell.marked).length;
     return Math.round((filledCells / totalCells) * 100);
-  };
+  }, [board, boardSize]);
   
   // Check for bingo (horizontal, vertical, diagonal)
-  const checkForBingo = (currentBoard: BingoBoard = board) => {
+  const checkForBingo = useCallback((currentBoard: BingoBoard = board) => {
     const newCompletedLines: Array<{type: string, index: number}> = [];
     
     // Check horizontal lines
@@ -262,12 +262,12 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     }
     
     return [...completedLines, ...newCompletedLines];
-  };
+  }, [board, boardSize, completedLines, onBingo]);
 
   // Effect to check for bingo when board changes
   useEffect(() => {
     checkForBingo();
-  }, [board]);
+  }, [board, checkForBingo]);
 
   return {
     board,

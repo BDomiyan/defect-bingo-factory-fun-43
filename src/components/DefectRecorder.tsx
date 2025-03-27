@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
+import { DEFECT_TYPES, GARMENT_PARTS, FACTORIES } from '@/lib/game-data';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart } from '@/lib/types';
@@ -49,11 +48,7 @@ interface DefectRecorderProps {
 
 const DefectRecorder: React.FC<DefectRecorderProps> = ({ 
   onDefectRecorded,
-  factoryList = [
-    { id: 'A6', name: 'Plant A6', lines: ['L1', 'L2', 'L3', 'L4'] },
-    { id: 'B2', name: 'Plant B2', lines: ['L1', 'L2', 'L3'] },
-    { id: 'C4', name: 'Plant C4', lines: ['L1', 'L2', 'L3', 'L4', 'L5'] }
-  ],
+  factoryList = FACTORIES,
   operatorId = '',
   operatorName = ''
 }) => {
@@ -68,14 +63,12 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentDate] = useState(new Date());
   
-  // Use the plant from the logged-in user or fall back to the provided factoryList
   const actualFactoryList = user?.plant 
     ? [user.plant, ...factoryList.filter(f => f.id !== user.plantId)]
     : factoryList;
   
   const selectedFactory = actualFactoryList.find(f => f.id === factoryId);
 
-  // Update factory and line when user changes
   useEffect(() => {
     if (user?.plantId) {
       setFactoryId(user.plantId);
@@ -104,7 +97,6 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     
     setIsSubmitting(true);
     
-    // Simulate a small delay for realistic feedback
     setTimeout(() => {
       const selectedDefectType = DEFECT_TYPES.find(d => d.code.toString() === defectType);
       const selectedGarmentPart = GARMENT_PARTS.find(p => p.code === garmentPart);
@@ -124,19 +116,16 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         operatorName: operatorInput || user?.name || 'Guest User',
         factoryId,
         lineNumber,
-        status: 'pending',
+        status: 'verified',
         reworked: false
       };
       
-      // Add to central defect system
       addDefect(newDefect);
       
-      // Call the callback to update dashboard if provided
       if (onDefectRecorded) {
         onDefectRecorded(newDefect);
       }
       
-      // Update player stats
       updatePlayerStats(newDefect);
       
       toast.success("Defect recorded successfully", {
@@ -148,12 +137,10 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     }, 500);
   };
   
-  // Update player stats when a defect is recorded
   const updatePlayerStats = (defect: RecordedDefect) => {
     const players = JSON.parse(localStorage.getItem('defect-bingo-players') || '[]');
     const playerName = defect.operatorName;
     
-    // Check if player exists
     const playerExists = players.some((p: any) => p.name === playerName);
     
     if (playerExists) {
@@ -169,7 +156,6 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       });
       localStorage.setItem('defect-bingo-players', JSON.stringify(updatedPlayers));
     } else {
-      // Create new player
       const newPlayer = {
         id: defect.operatorId || crypto.randomUUID(),
         name: playerName,
@@ -184,7 +170,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
 
   return (
     <div className="w-full bg-card rounded-lg border shadow-md overflow-hidden">
-      <div className="bg-gradient-professional p-4 border-b">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-4 border-b">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-white text-lg">Quick Defect Recorder</h3>
           <Badge variant="outline" className="bg-white/10 text-white border-white/20">

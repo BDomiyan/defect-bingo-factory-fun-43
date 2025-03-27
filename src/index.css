@@ -5,35 +5,69 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 222.2 47.4% 11.2%;
 
-    --primary: 248 79% 74%;
-    --primary-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 220 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 220 20% 96%;
-    --muted-foreground: 220 15% 50%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     --accent: 210 40% 96.1%;
-    --accent-foreground: 220 20% 10%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 100% 50%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 248 79% 74%;
+    --ring: 215 20.2% 65.1%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 1.2%;
+
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 216 34% 17%;
+
+    --radius: 0.5rem;
   }
 }
 
@@ -41,376 +75,77 @@
   * {
     @apply border-border;
   }
-
-  html, body, #root {
-    height: 100%;
-    width: 100%;
+  body {
     @apply bg-background text-foreground;
-    overscroll-behavior: none;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
 
-  /* Custom scrollbar for webkit browsers */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
-  }
-
-  /* Smooth scrolling for the entire page */
-  html {
-    scroll-behavior: smooth;
-  }
-
-  /* Focus styles */
-  *:focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
-  }
-
-  /* Typography adjustments */
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-medium tracking-tight;
-  }
-
-  /* Animation defaults */
-  .animate-in {
-    animation-duration: 300ms;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: transform, opacity;
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600;
   }
   
-  .hide-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+  .bg-gradient-professional {
+    @apply bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600;
   }
   
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
-  }
-
-  /* Glass effect */
-  .glass {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-  
-  .glass-dark {
-    background: rgba(30, 30, 30, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  /* Glass card effect */
-  .glass-card {
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(220, 220, 235, 0.4);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s ease-in-out;
-  }
-  
-  .glass-card:hover {
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-  }
-  
-  .glass-hover:hover {
-    background: linear-gradient(to right, rgba(245, 245, 255, 0.7), rgba(235, 245, 255, 0.7));
-    border: 1px solid rgba(220, 230, 245, 0.5);
+  .bg-gradient-button {
+    @apply bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white;
   }
   
   .glass-effect {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(4px);
-    transition: all 0.2s ease;
+    @apply backdrop-blur-sm bg-white/90 dark:bg-gray-800/90;
   }
   
   .glass-effect-active {
-    background: rgba(230, 240, 255, 0.85);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 0 15px rgba(0, 120, 255, 0.2);
+    @apply backdrop-blur-sm bg-primary/5 dark:bg-primary/20;
   }
   
   .glass-effect-success {
-    background: rgba(240, 255, 245, 0.8);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 0 10px rgba(0, 200, 100, 0.15);
+    @apply backdrop-blur-sm bg-green-50/90 dark:bg-green-900/30;
   }
   
-  /* Drag and Drop animations */
   .animate-pulse-subtle {
-    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
   
   @keyframes pulse-subtle {
     0%, 100% {
-      opacity: 0.8;
+      opacity: 0.3;
     }
     50% {
-      opacity: 0.4;
+      opacity: 0.5;
     }
   }
-
-  /* Text gradient - updated for Jay Jay Quality branding */
-  .text-gradient {
-    @apply bg-gradient-to-r from-blue-600 via-purple to-primary text-transparent bg-clip-text;
-  }
   
-  /* Animations */
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-in-out forwards;
+    animation: fade-in 0.3s ease-out forwards;
   }
   
-  .animate-scale-in {
-    animation: scaleIn 0.3s ease-out forwards;
-  }
-  
-  .animate-float {
-    animation: float 4s ease-in-out infinite;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .animate-bounce {
-    animation: bounce 1s ease infinite;
-  }
-  
-  .animate-shake {
-    animation: shake 0.5s ease-in-out;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+    animation: bounce 1s infinite;
   }
   
   @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-  
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
-    20%, 40%, 60%, 80% { transform: translateX(3px); }
-  }
-  
-  /* Dragging related styles */
-  .dragging {
-    opacity: 0.5;
-    border: 2px dashed var(--primary);
-  }
-  
-  .drag-over {
-    box-shadow: 0 0 0 2px var(--primary);
-    transform: scale(1.05);
-  }
-  
-  /* Mobile and tablet improvements */
-  @media (max-width: 992px) {
-    .container {
-      padding-left: 1rem;
-      padding-right: 1rem;
+    0%, 100% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
     }
-    
-    .card-grid {
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    50% {
+      transform: translateY(-25%);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
   }
-
-  /* Mobile tap highlights */
-  @media (max-width: 768px) {
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    .tap-highlight {
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .tap-highlight::after {
-      content: "";
-      display: block;
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
-      background-repeat: no-repeat;
-      background-position: 50%;
-      transform: scale(10, 10);
-      opacity: 0;
-      transition: transform 0.3s, opacity 0.5s;
-    }
-    
-    .tap-highlight:active::after {
-      transform: scale(0, 0);
-      opacity: 0.2;
-      transition: 0s;
-    }
-  }
-
-  /* Jay Jay Quality specific branding elements */
-  .jj-card {
-    @apply bg-gradient-to-b from-white to-soft-purple border border-purple-light shadow-md rounded-lg;
-  }
-  
-  .jj-button {
-    @apply bg-gradient-button text-white font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-300;
-  }
-  
-  .jj-section {
-    @apply bg-gradient-to-br from-soft-purple to-background border border-purple-light/50 rounded-xl p-6;
-  }
-
-  /* Card aesthetic improvements */
-  .analytics-card {
-    @apply bg-gradient-to-b from-white to-soft-blue shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
-  }
-  
-  .defect-card {
-    @apply bg-gradient-to-b from-white to-soft-green shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
-  }
-  
-  .highlight-card {
-    @apply bg-gradient-to-b from-white to-soft-yellow shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
-  }
-  
-  .operator-card {
-    @apply bg-gradient-to-b from-white to-soft-orange shadow-md hover:shadow-lg transition-all duration-300 rounded-lg;
-  }
-  
-  /* Data visualization improvements */
-  .chart-container {
-    @apply p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-all;
-  }
-  
-  /* Tablet-specific adjustments */
-  @media (min-width: 768px) and (max-width: 1024px) {
-    .tablet-scroll {
-      overflow-x: auto;
-      width: 100%;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    .tablet-container {
-      max-width: 100%;
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-    
-    .tablet-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-  }
-  
-  /* Game grid enhancements */
-  .game-grid {
-    @apply grid gap-3 sm:gap-4 md:gap-5 max-w-4xl mx-auto;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-  
-  @media (min-width: 640px) {
-    .game-grid {
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    }
-  }
-  
-  @media (min-width: 768px) {
-    .game-grid {
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    }
-  }
-  
-  /* Bingo grid styles */
-  .bingo-grid {
-    @apply grid grid-cols-5 gap-2 sm:gap-3 bg-bingo-grid rounded-xl p-3 sm:p-4 shadow-lg border border-blue-200/50;
-  }
-  
-  .bingo-cell {
-    @apply bg-white/90 rounded-lg shadow-sm border border-blue-200/50 p-2 sm:p-3 
-    hover:bg-gradient-to-b hover:from-blue-50 hover:to-white transition-all duration-300
-    hover:border-blue-300/70 hover:shadow-md;
-  }
-  
-  .bingo-cell.active {
-    @apply bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-md;
-  }
-  
-  .bingo-cell.completed {
-    @apply bg-gradient-to-b from-green-100 to-white border-green-400;
-  }
-  
-  /* Interactive card styles */
-  .game-card {
-    @apply bg-white shadow-sm hover:shadow-md transition-all duration-200 rounded-lg border border-blue-200/50 p-3;
-  }
-  
-  .game-card.active {
-    @apply bg-gradient-to-b from-blue-100 to-white border-blue-400 shadow-md;
-  }
-  
-  .game-card.completed {
-    @apply bg-gradient-to-b from-green-100 to-white border-green-400;
-  }
-  
-  /* Enhanced buttons */
-  .btn-gradient {
-    @apply bg-gradient-button text-white rounded-md shadow-sm hover:shadow-md transition-all duration-300;
-  }
-  
-  /* Navigation elements */
-  .nav-item {
-    @apply relative px-3 py-2 rounded-md text-blue-900 hover:bg-blue-50 transition-all;
-  }
-  
-  .nav-item.active {
-    @apply bg-blue-100 font-medium;
-  }
-  
-  .nav-item.active::before {
-    content: '';
-    @apply absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-full;
-  }
-}
-
-/* Additional Recharts customizations */
-.recharts-cartesian-grid line {
-  stroke: rgba(59, 130, 246, 0.2) !important;
-}
-
-.recharts-cartesian-axis-line {
-  stroke: rgba(59, 130, 246, 0.4) !important;
-}
-
-.recharts-tooltip {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid rgba(59, 130, 246, 0.3) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }

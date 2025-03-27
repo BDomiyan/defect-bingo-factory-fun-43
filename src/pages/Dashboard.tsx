@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, LineChart, BarChart3, PieChart as PieChartIcon, ArrowUpRight, Download, Trophy, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +31,7 @@ import { cn } from '@/lib/utils';
 import BingoBoard from '@/components/BingoBoard';
 import IncentiveConfig from '@/components/IncentiveConfig';
 import { useDefectSync } from '@/hooks/use-defect-sync';
+import { FACTORIES } from '@/lib/game-data';
 
 const defaultLineData = [
   { day: 'Mon', count: 0 },
@@ -97,11 +97,50 @@ const Dashboard = () => {
     }
   }, [recentDefects, setDefectRate]);
   
-  const getQualityStatus = () => {
+  useEffect(() => {
+    if (recentDefects.length === 0) return;
+    
+    const newLineData = [...lineData];
+    recentDefects.forEach(defect => {
+      const date = new Date(defect.timestamp);
+      const day = date.getDay();
+      const dayIndex = day === 0 ? 6 : day - 1; // Convert to 0-6 (Mon-Sun)
+      newLineData[dayIndex].count += 1;
+    });
+    setLineData(newLineData);
+    
+    const newBarData = [...barData];
+    recentDefects.forEach(defect => {
+      const partIndex = newBarData.findIndex(item => 
+        item.name.toLowerCase().includes(defect.garmentPart.name.toLowerCase())
+      );
+      if (partIndex >= 0) {
+        newBarData[partIndex].count += 1;
+      } else {
+        newBarData[0].count += 1;
+      }
+    });
+    setBarData(newBarData);
+    
+    const newPieData = [...pieData];
+    recentDefects.forEach(defect => {
+      const typeIndex = newPieData.findIndex(item => 
+        item.name.toLowerCase().includes(defect.defectType.name.toLowerCase())
+      );
+      if (typeIndex >= 0) {
+        newPieData[typeIndex].value += 1;
+      } else {
+        newPieData[newPieData.length - 1].value += 1; // Add to "Other" category
+      }
+    });
+    setPieData(newPieData);
+  }, [recentDefects]);
+  
+  const getQualityStatus = useCallback(() => {
     if (defectRate < 2.0) return { status: 'green', text: 'Excellent', icon: <CheckCircle className="h-5 w-5 text-green-500" /> };
     if (defectRate < 3.5) return { status: 'yellow', text: 'Average', icon: <AlertTriangle className="h-5 w-5 text-amber-500" /> };
     return { status: 'red', text: 'Critical', icon: <XCircle className="h-5 w-5 text-red-500" /> };
-  };
+  }, [defectRate]);
   
   const qualityStatus = getQualityStatus();
   
@@ -201,6 +240,31 @@ const Dashboard = () => {
     setPlayers(demoPlayers);
     setDefectRate(Math.random() * 5);
     
+    for (let i = 0; i < 20; i++) {
+      const randomGarmentIndex = Math.floor(Math.random() * FACTORIES.length);
+      const randomDefectType = {
+        code: Math.floor(Math.random() * 24) + 1,
+        name: `Demo Defect ${i+1}`
+      };
+      const randomGarmentPart = {
+        code: String.fromCharCode(65 + Math.floor(Math.random() * 24)),
+        name: `Demo Part ${i+1}`
+      };
+      
+      addDefect({
+        id: crypto.randomUUID(),
+        defectType: randomDefectType,
+        garmentPart: randomGarmentPart,
+        timestamp: new Date().toISOString(),
+        operatorId: demoPlayers[Math.floor(Math.random() * demoPlayers.length)].id,
+        operatorName: demoPlayers[Math.floor(Math.random() * demoPlayers.length)].name,
+        factoryId: FACTORIES[randomGarmentIndex].id,
+        lineNumber: FACTORIES[randomGarmentIndex].lines[0],
+        status: 'verified',
+        reworked: Math.random() > 0.7
+      });
+    }
+    
     toast.success('Demo data loaded', {
       description: 'Dashboard has been populated with sample data'
     });
@@ -294,7 +358,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Button variant="outline" size="sm" className="h-9 gap-1">
               <Calendar className="h-4 w-4" />
-              <span>June 2023</span>
+              <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </Button>
             <Button 
               variant="outline" 
