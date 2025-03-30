@@ -1,10 +1,10 @@
 
-import React from "react"; // Explicitly import React
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/auth-context";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -16,43 +16,17 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Admin from "./pages/Admin";
 
-// Create the query client outside of the component
+// Create the query client outside of the component for better performance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
       staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes
     },
   },
 });
-
-// Add viewport meta tag for better tablet support
-if (typeof document !== 'undefined') {
-  // Check if viewport meta exists
-  let viewportMeta = document.querySelector('meta[name="viewport"]');
-  
-  // If it doesn't exist, create it
-  if (!viewportMeta) {
-    viewportMeta = document.createElement('meta');
-    viewportMeta.setAttribute('name', 'viewport');
-    document.head.appendChild(viewportMeta);
-  }
-  
-  // Set viewport content for better mobile and tablet experience
-  viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-  
-  // Add theme-color meta for browser UI consistency
-  let themeColorMeta = document.querySelector('meta[name="theme-color"]');
-  if (!themeColorMeta) {
-    themeColorMeta = document.createElement('meta');
-    themeColorMeta.setAttribute('name', 'theme-color');
-    document.head.appendChild(themeColorMeta);
-  }
-  
-  // Set theme color to match our primary gradient
-  themeColorMeta.setAttribute('content', '#1e3a8a');
-}
 
 const App = () => {
   const [lastVisited, setLastVisited] = useLocalStorage<string>('last-visited-page', '/');
@@ -75,6 +49,7 @@ const App = () => {
             theme="light" 
             richColors 
             toastOptions={{
+              duration: 5000,
               classNames: {
                 toast: "bg-white border-blue-200 shadow-lg",
                 title: "text-blue-900 font-medium",
