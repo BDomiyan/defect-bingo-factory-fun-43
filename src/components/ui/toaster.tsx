@@ -26,7 +26,7 @@ export function Toaster() {
               "flex items-start gap-3 shadow-lg backdrop-blur-sm border-2",
               variant === "success" && "border-green-500/30",
               variant === "warning" && "border-yellow-500/30",
-              variant === "error" && "border-red-500/30", 
+              variant === "destructive" && "border-red-500/30", 
               variant === "info" && "border-blue-500/30",
             )}
           >

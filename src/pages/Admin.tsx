@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Header } from '@/components/Header';
+import Header from '@/components/Header';
 import { 
   Tabs, 
   TabsContent, 
@@ -97,7 +97,8 @@ const Admin = () => {
     try {
       addUser({
         ...newUser,
-        password: newUser.password || 'password123'
+        password: newUser.password || 'password123',
+        role: newUser.role as "user" | "admin" | "manager" | "qc"
       });
       
       setNewUser({
