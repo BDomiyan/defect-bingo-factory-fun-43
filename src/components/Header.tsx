@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutGrid, 
   Award, 
@@ -9,7 +9,10 @@ import {
   X,
   UserCircle,
   ClipboardCheck,
-  LogOut
+  LogOut,
+  Settings,
+  User,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -22,37 +25,59 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from 'sonner';
 
 type NavItem = {
   name: string;
   href: string;
   icon: React.ReactNode;
+  roles?: ('user' | 'admin' | 'manager' | 'qc')[];
 };
 
-const navItems: NavItem[] = [
-  {
-    name: 'Game',
-    href: '/',
-    icon: <LayoutGrid className="h-4 w-4" />,
-  },
-  {
-    name: 'Leaderboard',
-    href: '/leaderboard',
-    icon: <Award className="h-4 w-4" />,
-  },
-  {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: <LineChart className="h-4 w-4" />,
-  },
-];
-
-export function Header() {
+const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
   
   const activeTab = location.pathname;
+
+  const navItems: NavItem[] = [
+    {
+      name: 'Game',
+      href: '/',
+      icon: <LayoutGrid className="h-4 w-4" />,
+    },
+    {
+      name: 'Leaderboard',
+      href: '/leaderboard',
+      icon: <Award className="h-4 w-4" />,
+    },
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: <LineChart className="h-4 w-4" />,
+    },
+    {
+      name: 'Admin',
+      href: '/admin',
+      icon: <Settings className="h-4 w-4" />,
+      roles: ['admin']
+    },
+  ];
+
+  // Filter nav items based on user role
+  const filteredNavItems = navItems.filter(
+    item => !item.roles || (user && item.roles.includes(user.role as any))
+  );
+
+  const handleLogout = () => {
+    logout();
+    toast.info("You've been logged out", {
+      description: "See you again soon!"
+    });
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -73,7 +98,7 @@ export function Header() {
 
         <div className="hidden md:flex md:flex-1 md:items-center md:justify-between">
           <nav className="flex items-center space-x-1">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -96,16 +121,32 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 gap-1">
                     <UserCircle className="h-4 w-4" />
-                    <span>{user?.name || 'User'}</span>
+                    <span className="max-w-[100px] truncate">{user?.name || 'User'}</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
-                  <DropdownMenuItem>Settings</DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Admin Panel</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-500">
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-500">
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
                   </DropdownMenuItem>
@@ -142,7 +183,7 @@ export function Header() {
       {isOpen && (
         <div className="container md:hidden">
           <nav className="flex flex-col space-y-1 pb-4">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -168,7 +209,7 @@ export function Header() {
                   size="sm" 
                   className="mx-4 justify-start gap-1 text-red-500 border-red-200"
                   onClick={() => {
-                    logout();
+                    handleLogout();
                     setIsOpen(false);
                   }}
                 >
@@ -189,6 +230,6 @@ export function Header() {
       )}
     </header>
   );
-}
+};
 
 export default Header;
