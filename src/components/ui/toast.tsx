@@ -117,9 +117,11 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
-// Add icon support to toast
+// Fix the types here
+type ToastVariant = "default" | "destructive" | "success" | "warning" | "info";
+
 interface ToastIconProps {
-  variant?: "default" | "destructive" | "success" | "warning" | "info";
+  variant?: ToastVariant;
 }
 
 const ToastIcon = ({ variant = "default" }: ToastIconProps) => {

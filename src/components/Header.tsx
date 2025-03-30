@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -66,7 +65,6 @@ const Header = () => {
     },
   ];
 
-  // Filter nav items based on user role
   const filteredNavItems = navItems.filter(
     item => !item.roles || (user && item.roles.includes(user.role as any))
   );
@@ -179,7 +177,6 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {isOpen && (
         <div className="container md:hidden">
           <nav className="flex flex-col space-y-1 pb-4">
