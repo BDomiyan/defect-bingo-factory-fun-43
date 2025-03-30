@@ -37,7 +37,10 @@ const DefectModal = ({
 
   const handleValidate = () => {
     if (!selectedGarmentPart || !selectedDefectType) {
-      toast.error('Please select both garment part and defect type');
+      toast.error('Please select both garment part and defect type', {
+        description: 'You need to select a garment part and defect type before validating',
+        position: 'top-center',
+      });
       return;
     }
     
@@ -50,6 +53,7 @@ const DefectModal = ({
       
       toast.success('Defect validated!', {
         description: 'You earned points for this detection',
+        position: 'bottom-right',
       });
       
       onClose();

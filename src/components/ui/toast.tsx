@@ -1,7 +1,8 @@
+
 import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
-import { X } from "lucide-react"
+import { X, CheckCircle, AlertCircle, InfoIcon, XCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -30,6 +31,12 @@ const toastVariants = cva(
         default: "border bg-background text-foreground",
         destructive:
           "destructive group border-destructive bg-destructive text-destructive-foreground",
+        success:
+          "border-green-500/50 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-500 dark:text-green-300",
+        warning:
+          "border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/50 dark:border-yellow-500 dark:text-yellow-300",
+        info:
+          "border-blue-500/50 bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:border-blue-500 dark:text-blue-300",
       },
     },
     defaultVariants: {
@@ -110,6 +117,26 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
+// Add icon support to toast
+interface ToastIconProps {
+  variant?: "default" | "destructive" | "success" | "warning" | "info";
+}
+
+const ToastIcon = ({ variant = "default" }: ToastIconProps) => {
+  switch (variant) {
+    case "success":
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case "warning":
+      return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+    case "destructive":
+      return <XCircle className="h-5 w-5 text-destructive" />;
+    case "info":
+      return <InfoIcon className="h-5 w-5 text-blue-500" />;
+    default:
+      return null;
+  }
+};
+
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
@@ -124,4 +151,5 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+  ToastIcon
 }

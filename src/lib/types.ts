@@ -79,3 +79,15 @@ export interface RecordedDefect {
   reworkTime?: number;
   supervisorComment?: string;
 }
+
+export type AlertType = 'success' | 'warning' | 'error' | 'info';
+
+export interface AlertProps {
+  type: AlertType;
+  title: string;
+  message: string;
+  icon?: React.ReactNode;
+  duration?: number;
+  position?: 'top' | 'bottom' | 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+  onClose?: () => void;
+}

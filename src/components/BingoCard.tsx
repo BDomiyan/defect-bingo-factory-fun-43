@@ -3,10 +3,9 @@ import { useState, useEffect } from 'react';
 import { BingoCell } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Move, Plus, AlertTriangle, Award } from 'lucide-react';
+import { CheckCircle, Move, Plus, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { isValidCombination } from '@/lib/game-data';
 
 interface BingoCardProps {
   cell: BingoCell;
@@ -36,18 +35,7 @@ const BingoCard = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isTouchActive, setIsTouchActive] = useState(false);
-  const [showInvalidWarning, setShowInvalidWarning] = useState(false);
   const isMobile = useIsMobile();
-  
-  // Check if the combination is valid when both parts are present
-  useEffect(() => {
-    if (cell.garmentPart && cell.defectType) {
-      const isValid = isValidCombination(cell.garmentPart, cell.defectType);
-      setShowInvalidWarning(!isValid && !cell.marked);
-    } else {
-      setShowInvalidWarning(false);
-    }
-  }, [cell.garmentPart, cell.defectType, cell.marked]);
   
   useEffect(() => {
     if (isTouchActive) {
@@ -65,18 +53,10 @@ const BingoCard = ({
     }
     
     if (!cell.marked && cell.garmentPart && cell.defectType) {
-      // Only show validation toast if the combination is valid
-      if (!showInvalidWarning) {
-        toast.success('Validating defect...', {
-          description: `${cell.garmentPart.name} - ${cell.defectType.name}`,
-          position: 'bottom-right',
-        });
-      } else {
-        toast.warning('This may be an unusual combination', {
-          description: 'Are you sure this defect occurs on this part?',
-          position: 'bottom-right',
-        });
-      }
+      toast.success('Validating defect...', {
+        description: `${cell.garmentPart.name} - ${cell.defectType.name}`,
+        position: 'bottom-right',
+      });
     }
     
     setIsTouchActive(true);
@@ -110,7 +90,6 @@ const BingoCard = ({
   // Animation classes for different states
   const getAnimationClass = () => {
     if (isBingoLine && cell.marked) return "animate-pulse";
-    if (showInvalidWarning) return "animate-bounce";
     if (isDragOver) return "animate-pulse";
     return "";
   };
@@ -132,7 +111,6 @@ const BingoCard = ({
         isDragging && "opacity-80 border-primary/30 shadow-inner",
         isDragOver && "ring-2 ring-primary/40 scale-105 shadow-lg",
         "hover:shadow-md hover:scale-[1.02] hover:z-10",
-        showInvalidWarning && "border-orange-400 bg-orange-50",
         cell.marked ? "glass-effect-success" : isDragOver ? "glass-effect-active" : "glass-effect",
         isMobile && "active:scale-95 transition-transform",
         getAnimationClass()
@@ -167,7 +145,7 @@ const BingoCard = ({
           {cell.defectType && (
             <div className={cn(
               "text-xs font-medium uppercase tracking-wider transition-colors duration-300",
-              cell.marked ? "text-primary" : showInvalidWarning ? "text-orange-600" : "text-muted-foreground"
+              cell.marked ? "text-primary" : "text-muted-foreground"
             )}>
               {cell.defectType.code}
             </div>
@@ -177,7 +155,7 @@ const BingoCard = ({
             {cell.defectType && (
               <div className={cn(
                 "text-xs sm:text-sm font-medium transition-colors duration-300",
-                cell.marked ? "text-foreground" : showInvalidWarning ? "text-orange-700" : "text-foreground/80"
+                cell.marked ? "text-foreground" : "text-foreground/80"
               )}>
                 {cell.defectType.name}
               </div>
@@ -186,19 +164,12 @@ const BingoCard = ({
             {cell.garmentPart && (
               <div className={cn(
                 "text-xs truncate w-full transition-colors duration-300 border-t border-dashed border-muted mt-1 pt-1",
-                cell.marked ? "text-foreground/90" : showInvalidWarning ? "text-orange-600" : "text-foreground/70"
+                cell.marked ? "text-foreground/90" : "text-foreground/70"
               )}>
                 {cell.garmentPart.code}: {cell.garmentPart.name}
               </div>
             )}
           </div>
-          
-          {/* Warning for invalid combinations */}
-          {showInvalidWarning && (
-            <div className="absolute top-1 right-1">
-              <AlertTriangle className="h-3 w-3 text-orange-500" />
-            </div>
-          )}
           
           {/* Marked indicator */}
           {cell.marked && (
@@ -217,20 +188,18 @@ const BingoCard = ({
           {showHoverEffects && isComplete && !cell.marked && (
             <div className="absolute inset-x-0 bottom-2 flex justify-center">
               <Button
-                variant={showInvalidWarning ? "destructive" : "ghost"}
+                variant="ghost"
                 size="sm"
                 className={cn(
                   "h-7 px-2 py-1 text-xs rounded-full animate-fade-in",
-                  showInvalidWarning 
-                    ? "bg-orange-100 text-orange-600 hover:bg-orange-200" 
-                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                  "bg-primary/10 text-primary hover:bg-primary/20"
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleClick();
                 }}
               >
-                {showInvalidWarning ? "Unusual" : "Validate"}
+                Validate
               </Button>
             </div>
           )}
