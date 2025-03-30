@@ -58,6 +58,11 @@ export interface Operator {
   operation?: string;
 }
 
+export interface Operation {
+  id: string;
+  name: string;
+}
+
 export interface RecordedDefect {
   id: string;
   defectType: DefectType;

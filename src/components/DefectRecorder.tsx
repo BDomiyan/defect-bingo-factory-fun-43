@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFECT_TYPES, GARMENT_PARTS, FACTORIES, OPERATIONS } from '@/lib/game-data';
+import { DEFECT_TYPES, GARMENT_PARTS, OPERATIONS } from '@/lib/game-data';
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart, RecordedDefect } from '@/lib/types';
@@ -22,14 +22,14 @@ import { useDefectSync } from '@/hooks/use-defect-sync';
 
 interface DefectRecorderProps {
   onDefectRecorded?: (defect: RecordedDefect) => void;
-  factoryList?: typeof FACTORIES;
+  factoryList?: { id: string; name: string; lines: string[] }[];
   operatorId?: string;
   operatorName?: string;
 }
 
 const DefectRecorder: React.FC<DefectRecorderProps> = ({ 
   onDefectRecorded,
-  factoryList = FACTORIES,
+  factoryList = [],
   operatorId = '',
   operatorName = ''
 }) => {
@@ -39,7 +39,9 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     recentDefects, 
     getOperatorsByLine, 
     getAllOperators, 
-    getOperatorById 
+    getOperatorById,
+    getAllPlants,
+    getOperationsList
   } = useDefectSync();
   
   const [defectType, setDefectType] = useState<string>('');
@@ -55,12 +57,22 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   const [showConfetti, setShowConfetti] = useState(false);
   const [operators, setOperators] = useState<any[]>([]);
   const [selectedOperator, setSelectedOperator] = useState<string>('');
+  const [operations, setOperations] = useState<any[]>([]);
+  const [availableFactories, setAvailableFactories] = useState<any[]>([]);
   
-  const actualFactoryList = user?.plant 
-    ? [user.plant, ...factoryList.filter(f => f.id !== user.plantId)]
-    : factoryList;
+  // Get all plants from defect sync
+  useEffect(() => {
+    const plants = getAllPlants();
+    if (plants && plants.length > 0) {
+      setAvailableFactories(plants);
+    }
+    
+    // Get operations
+    const ops = getOperationsList();
+    setOperations(ops || []);
+  }, []);
   
-  const selectedFactory = actualFactoryList.find(f => f.id === factoryId);
+  const selectedFactory = availableFactories.find(f => f.id === factoryId);
 
   useEffect(() => {
     if (user?.plantId) {
@@ -260,7 +272,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 <SelectValue placeholder="Select factory" />
               </SelectTrigger>
               <SelectContent>
-                {actualFactoryList.map(factory => (
+                {availableFactories.map(factory => (
                   <SelectItem key={factory.id} value={factory.id}>
                     {factory.name}
                   </SelectItem>
@@ -349,7 +361,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
               <SelectValue placeholder="Select operation" />
             </SelectTrigger>
             <SelectContent>
-              {OPERATIONS.map(op => (
+              {operations.map(op => (
                 <SelectItem key={op.id} value={op.id}>
                   {op.name}
                 </SelectItem>

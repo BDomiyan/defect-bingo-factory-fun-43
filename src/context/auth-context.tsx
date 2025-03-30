@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       name: 'System Administrator',
       email: 'admin@jayjay.com',
       employeeId: 'ADMIN-001',
-      plantId: 'f1',
+      plantId: 'A6',
       lineNumber: 'L1',
       role: 'admin',
       createdAt: new Date().toISOString()
@@ -69,8 +69,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   ]);
   const [currentUser, setCurrentUser] = useLocalStorage<UserProfile | null>('currentUser', null);
   const [plants, setPlants] = useLocalStorage<Plant[]>('plants', [
-    { id: 'f1', name: 'Factory Alpha', lines: ['L1', 'L2', 'L3'] },
-    { id: 'f2', name: 'Factory Beta', lines: ['L1', 'L2', 'L3', 'L4'] }
+    { id: 'A6', name: 'Jay Jay Main Factory', lines: ['L1', 'L2', 'L3'] }
   ]);
   
   // Check if user is admin
@@ -310,8 +309,24 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       return;
     }
     
+    // Generate a unique plant ID with format letter+number
+    const letters = "ABCDEFGHJKLMNP";
+    let newId = '';
+    let isUnique = false;
+    
+    while (!isUnique) {
+      const letter = letters[Math.floor(Math.random() * letters.length)];
+      const number = Math.floor(Math.random() * 9) + 1;
+      newId = `${letter}${number}`;
+      
+      // Check if this ID is already in use
+      if (!plants.some(p => p.id === newId)) {
+        isUnique = true;
+      }
+    }
+    
     const newPlant: Plant = {
-      id: `f${plants.length + 1}`,
+      id: newId,
       name: plantData.name,
       lines: plantData.lines
     };
@@ -355,6 +370,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const deletePlant = (plantId: string) => {
     if (!isAdmin) {
       toast.error("Unauthorized", { description: "You don't have permission to delete plants" });
+      return;
+    }
+    
+    // Don't allow deleting the default A6 plant
+    if (plantId === 'A6') {
+      toast.error("Cannot delete", { 
+        description: "You cannot delete the main factory." 
+      });
       return;
     }
     

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth, UserProfile, Plant } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Trash2, PencilLine, Plus, Users, Building2, LogOut } from 'lucide-react';
+import { Trash2, PencilLine, Plus, Users, Building2, LogOut, Settings, BookOpen, PlusCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useDefectSync } from '@/hooks/use-defect-sync';
+
+// Define Operation Type
+interface Operation {
+  id: string;
+  name: string;
+}
 
 const Admin = () => {
   const { 
@@ -25,8 +32,16 @@ const Admin = () => {
     addPlant, 
     updatePlant, 
     deletePlant,
-    logout
+    logout,
+    user
   } = useAuth();
+
+  const { 
+    getOperationsList,
+    addOperation,
+    deleteOperation
+  } = useDefectSync();
+
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   
@@ -36,7 +51,7 @@ const Admin = () => {
     email: '',
     password: '',
     employeeId: '',
-    plantId: '',
+    plantId: user?.plantId || 'A6',
     lineNumber: '',
     role: 'user' as UserProfile['role']
   });
@@ -47,10 +62,20 @@ const Admin = () => {
     lines: ['L1']
   });
   const [editingLine, setEditingLine] = useState('');
+
+  // Operations state
+  const [operations, setOperations] = useState<Operation[]>([]);
+  const [newOperation, setNewOperation] = useState('');
   
   // Get data
   const users = getAllUsers();
   const plants = getAllPlants();
+
+  // Load operations on component mount
+  useEffect(() => {
+    const ops = getOperationsList();
+    setOperations(ops);
+  }, []);
   
   // Handle logout
   const handleLogout = () => {
@@ -82,7 +107,7 @@ const Admin = () => {
       email: '',
       password: '',
       employeeId: '',
-      plantId: '',
+      plantId: user?.plantId || 'A6',
       lineNumber: '',
       role: 'user'
     });
@@ -128,6 +153,36 @@ const Admin = () => {
       lines: newPlant.lines.filter(l => l !== line)
     });
   };
+
+  // Add new operation
+  const handleAddOperation = () => {
+    if (!newOperation) {
+      toast.error("Operation name is required");
+      return;
+    }
+
+    // Generate unique ID for the operation
+    const operationId = `op-${Date.now().toString(36)}`;
+    const operation = { id: operationId, name: newOperation };
+    
+    addOperation(operation);
+    setOperations([...operations, operation]);
+    setNewOperation('');
+    
+    toast.success("Operation added", {
+      description: `${newOperation} has been added to operations list`
+    });
+  };
+
+  // Delete operation
+  const handleDeleteOperation = (operationId: string) => {
+    deleteOperation(operationId);
+    setOperations(operations.filter(op => op.id !== operationId));
+    
+    toast.success("Operation deleted", {
+      description: "The operation has been removed from the system"
+    });
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-blue-50">
@@ -135,7 +190,7 @@ const Admin = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gradient mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage users, plants, and system settings</p>
+            <p className="text-muted-foreground">Manage users, plants, operations, and system settings</p>
           </div>
           <Button variant="outline" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
@@ -144,7 +199,7 @@ const Admin = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-8">
+          <TabsList className="grid grid-cols-3 mb-8">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Users Management
@@ -152,6 +207,10 @@ const Admin = () => {
             <TabsTrigger value="plants" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Plants Management
+            </TabsTrigger>
+            <TabsTrigger value="operations" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Operations Management
             </TabsTrigger>
           </TabsList>
           
@@ -494,7 +553,6 @@ const Admin = () => {
                               </div>
                               <DialogFooter>
                                 <Button variant="outline" onClick={() => {
-                                  // This would capture the form data and update plant
                                   toast.success("Changes saved", {
                                     description: "This is a demo. Full implementation would save changes."
                                   });
@@ -510,6 +568,7 @@ const Admin = () => {
                             size="icon" 
                             className="h-8 w-8 text-destructive"
                             onClick={() => deletePlant(plant.id)}
+                            disabled={plant.id === 'A6'} // Disable deleting the main factory
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -518,6 +577,63 @@ const Admin = () => {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="operations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Operations Management</CardTitle>
+                <CardDescription>Add or remove different operations within the factory</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-3 items-end">
+                  <div className="space-y-2 flex-1">
+                    <Label htmlFor="operation-name">New Operation Name</Label>
+                    <Input 
+                      id="operation-name"
+                      value={newOperation}
+                      onChange={(e) => setNewOperation(e.target.value)}
+                      placeholder="e.g. Cutting, Sewing, QC"
+                    />
+                  </div>
+                  <Button onClick={handleAddOperation}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Operation
+                  </Button>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="bg-secondary/30 rounded-lg p-4">
+                  <h3 className="font-medium text-lg mb-4">Current Operations</h3>
+                  
+                  {operations.length === 0 ? (
+                    <div className="text-center p-6 text-muted-foreground bg-background/80 rounded-md">
+                      No operations defined yet. Add your first operation above.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {operations.map(operation => (
+                        <div 
+                          key={operation.id} 
+                          className="flex items-center justify-between bg-background rounded-md p-3 shadow-sm border"
+                        >
+                          <div className="font-medium">{operation.name}</div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteOperation(operation.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

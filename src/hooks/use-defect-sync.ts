@@ -2,10 +2,16 @@ import { useState, useEffect } from 'react';
 import { useLocalStorage } from './use-local-storage';
 import { DefectType, GarmentPart, Operator, RecordedDefect } from '@/lib/types';
 import { toast } from 'sonner';
-import { FACTORIES } from '@/lib/game-data';
+import { OPERATIONS } from '@/lib/game-data';
 
-// Define the allowed plants
-const ALLOWED_PLANTS = ['A6', 'C5', 'M1', 'B7', 'D2', 'E4', 'F8', 'G3', 'H9', 'J5', 'K1', 'L6', 'N2'];
+// Define Operation interface
+interface Operation {
+  id: string;
+  name: string;
+}
+
+// Define the allowed plants (all plants are now user-defined)
+const ALLOWED_PLANTS = ['A6']; // Default main plant
 
 /**
  * Custom hook to synchronize defect data across all components
@@ -14,26 +20,51 @@ const ALLOWED_PLANTS = ['A6', 'C5', 'M1', 'B7', 'D2', 'E4', 'F8', 'G3', 'H9', 'J
 export const useDefectSync = () => {
   const [recentDefects, setRecentDefects] = useLocalStorage<RecordedDefect[]>('recent-defects', []);
   const [operators, setOperators] = useLocalStorage<Operator[]>('operators', []);
+  const [plants, setPlants] = useLocalStorage<{id: string, name: string, lines: string[]}[]>('plants', [
+    { id: 'A6', name: 'Jay Jay Main Factory', lines: ['L1', 'L2', 'L3'] }
+  ]);
+  const [operations, setOperations] = useLocalStorage<Operation[]>('operations', []);
   
-  // Initialize some operators if none exist
+  // Initialize operations if empty
   useEffect(() => {
-    if (operators.length === 0) {
-      setOperators([]);
+    if (operations.length === 0) {
+      const defaultOperations: Operation[] = OPERATIONS.map(op => ({
+        id: op.id,
+        name: op.name
+      }));
+      setOperations(defaultOperations);
+    }
+  }, []);
+  
+  // Sync with plant data from auth context
+  useEffect(() => {
+    const authPlants = JSON.parse(localStorage.getItem('plants') || '[]');
+    if (authPlants.length > 0) {
+      // Update our local plants list from auth context
+      setPlants(authPlants);
+      
+      // Update the allowed plants list
+      authPlants.forEach((plant: any) => {
+        if (!ALLOWED_PLANTS.includes(plant.id)) {
+          ALLOWED_PLANTS.push(plant.id);
+        }
+      });
     }
   }, []);
   
   // Filter defects to only include the allowed plants
   useEffect(() => {
-    // If there are defects from plants we want to remove, filter them out
+    // Get latest plant list from auth context
+    const authPlants = JSON.parse(localStorage.getItem('plants') || '[]');
+    const plantIds = authPlants.map((p: any) => p.id);
+    
+    // If there are defects from plants that don't exist anymore, filter them out
     const filteredDefects = recentDefects.filter(d => 
-      ALLOWED_PLANTS.includes(d.factoryId)
+      plantIds.includes(d.factoryId)
     );
     
     if (filteredDefects.length !== recentDefects.length) {
       setRecentDefects(filteredDefects);
-      toast.info("Defect data updated", {
-        description: "Some plant data has been removed"
-      });
     }
   }, []);
   
@@ -44,8 +75,12 @@ export const useDefectSync = () => {
   
   // Function to add a new defect
   const addDefect = (defect: RecordedDefect) => {
+    // Get latest plant list from auth context
+    const authPlants = JSON.parse(localStorage.getItem('plants') || '[]');
+    const plantIds = authPlants.map((p: any) => p.id);
+    
     // Ensure the factoryId is one of the allowed plants
-    if (!ALLOWED_PLANTS.includes(defect.factoryId)) {
+    if (!plantIds.includes(defect.factoryId)) {
       defect.factoryId = 'A6'; // Default to A6 if an invalid plant is provided
     }
     
@@ -57,6 +92,69 @@ export const useDefectSync = () => {
     updateLeaderboardData(defect);
     
     return defect;
+  };
+  
+  // Operations management functions
+  const getOperationsList = () => {
+    return operations;
+  };
+  
+  const addOperation = (operation: Operation) => {
+    if (!operation.id) {
+      operation.id = `op-${Date.now().toString(36)}`;
+    }
+    
+    // Check if operation already exists
+    const exists = operations.some(op => op.name.toLowerCase() === operation.name.toLowerCase());
+    if (exists) {
+      toast.error("Operation already exists", {
+        description: "An operation with this name already exists"
+      });
+      return null;
+    }
+    
+    const updatedOperations = [...operations, operation];
+    setOperations(updatedOperations);
+    
+    return operation;
+  };
+  
+  const deleteOperation = (operationId: string) => {
+    // Check if any operators are using this operation
+    const opsInUse = operators.some(op => op.operation === operationId);
+    if (opsInUse) {
+      toast.error("Operation in use", {
+        description: "This operation is assigned to operators"
+      });
+      return false;
+    }
+    
+    const updatedOperations = operations.filter(op => op.id !== operationId);
+    setOperations(updatedOperations);
+    
+    return true;
+  };
+  
+  const updateOperation = (operationId: string, name: string) => {
+    // Check if operation with this name already exists (excluding current one)
+    const exists = operations.some(op => 
+      op.name.toLowerCase() === name.toLowerCase() && op.id !== operationId
+    );
+    
+    if (exists) {
+      toast.error("Operation already exists", {
+        description: "An operation with this name already exists"
+      });
+      return null;
+    }
+    
+    const updatedOperations = operations.map(op => 
+      op.id === operationId ? { ...op, name } : op
+    );
+    
+    setOperations(updatedOperations);
+    
+    return updatedOperations.find(op => op.id === operationId);
   };
   
   // Function to update a defect status
@@ -313,6 +411,12 @@ export const useDefectSync = () => {
     return operators.find(op => op.id === operatorId) || null;
   };
   
+  // Function to get all plants (from auth context)
+  const getAllPlants = () => {
+    const authPlants = JSON.parse(localStorage.getItem('plants') || '[]');
+    return authPlants;
+  };
+  
   const getTopDefectType = () => {
     const defectCounts = {} as Record<string, number>;
     
@@ -362,14 +466,18 @@ export const useDefectSync = () => {
   const getDefectsByPlantAndLine = () => {
     const result = {} as Record<string, Record<string, RecordedDefect[]>>;
     
+    // Get latest plant list from auth context
+    const authPlants = JSON.parse(localStorage.getItem('plants') || '[]');
+    const plantIds = authPlants.map((p: any) => p.id);
+    
     // Initialize the allowed plants
-    ALLOWED_PLANTS.forEach(plantId => {
+    plantIds.forEach(plantId => {
       result[plantId] = {};
       // Get factory info
-      const factory = FACTORIES.find(f => f.id === plantId);
+      const factory = authPlants.find((f: any) => f.id === plantId);
       // Initialize with available lines
       if (factory) {
-        factory.lines.forEach(line => {
+        factory.lines.forEach((line: string) => {
           result[plantId][line] = [];
         });
       } else {
@@ -382,7 +490,7 @@ export const useDefectSync = () => {
     
     // Populate with actual defects
     recentDefects.forEach(defect => {
-      if (ALLOWED_PLANTS.includes(defect.factoryId)) {
+      if (plantIds.includes(defect.factoryId)) {
         if (!result[defect.factoryId][defect.lineNumber]) {
           result[defect.factoryId][defect.lineNumber] = [];
         }
@@ -567,6 +675,13 @@ export const useDefectSync = () => {
     getOperatorsByLine,
     getOperatorsByFactory,
     getAllOperators,
-    getOperatorById
+    getOperatorById,
+    getAllPlants,
+    getOperationsList,
+    addOperation,
+    deleteOperation,
+    updateOperation
   };
 };
+
+export default useDefectSync;
