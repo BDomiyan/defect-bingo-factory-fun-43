@@ -1,10 +1,9 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, AlertTriangle, Save, Loader2, Calendar, Award, PartyPopper } from "lucide-react";
+import { Check, Clock, AlertTriangle, Save, Loader2, Calendar, PartyPopper } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,42 +11,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFECT_TYPES, GARMENT_PARTS, OPERATIONS } from '@/lib/game-data';
+import { DEFECT_TYPES, GARMENT_PARTS, COMMON_DEFECT_PAIRS } from '@/lib/game-data';
 import { toast } from "sonner";
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DefectType, GarmentPart, RecordedDefect } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { format } from 'date-fns';
-import { useDefectSync } from '@/hooks/use-defect-sync';
+import { useDefects, useOperatorsByFactoryLine } from '@/lib/supabase/hooks';
 
 interface DefectRecorderProps {
   onDefectRecorded?: (defect: RecordedDefect) => void;
   factoryList?: { id: string; name: string; lines: string[] }[];
   operatorId?: string;
   operatorName?: string;
+  plantsList?: { id: string; name: string; lines: string[] }[];
+  operationsList?: { id: string; name: string }[];
 }
 
 const DefectRecorder: React.FC<DefectRecorderProps> = ({ 
   onDefectRecorded,
   factoryList = [],
   operatorId = '',
-  operatorName = ''
+  operatorName = '',
+  plantsList = [],
+  operationsList = []
 }) => {
   const { user } = useAuth();
-  const { 
-    addDefect, 
-    recentDefects, 
-    getOperatorsByLine, 
-    getAllOperators, 
-    getOperatorById,
-    getAllPlants,
-    getOperationsList
-  } = useDefectSync();
+  
+  // Use Supabase hooks for defects and operators
+  const { addDefect: addDefectToSupabase, defects } = useDefects();
+  const { operators: supabaseOperators, loading: operatorsLoading, fetchOperatorsByFactoryLine } = useOperatorsByFactoryLine();
   
   const [defectType, setDefectType] = useState<string>('');
   const [garmentPart, setGarmentPart] = useState<string>('');
-  const [factoryId, setFactoryId] = useState<string>(user?.plantId || 'A6');
-  const [lineNumber, setLineNumber] = useState<string>(user?.lineNumber || 'L1');
+  const [factoryId, setFactoryId] = useState<string>('');
+  const [lineNumber, setLineNumber] = useState<string>('');
   const [operatorInput, setOperatorInput] = useState<string>(operatorName || user?.name || '');
   const [operatorIdInput, setOperatorIdInput] = useState<string>(operatorId || user?.employeeId || '');
   const [epfNumber, setEpfNumber] = useState<string>('');
@@ -59,62 +56,180 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
   const [selectedOperator, setSelectedOperator] = useState<string>('');
   const [operations, setOperations] = useState<any[]>([]);
   const [availableFactories, setAvailableFactories] = useState<any[]>([]);
+  const [availableLines, setAvailableLines] = useState<string[]>([]);
   
-  // Get all plants from defect sync
+  // Set initial values when user or plants data is loaded
   useEffect(() => {
-    const plants = getAllPlants();
-    if (plants && plants.length > 0) {
-      setAvailableFactories(plants);
+    // Set user defaults if available
+    if (user?.plantId && !factoryId) {
+      console.log("Setting factoryId from user:", user.plantId);
+      setFactoryId(user.plantId);
     }
     
-    // Get operations
-    const ops = getOperationsList();
-    setOperations(ops || []);
-  }, []);
+    if (user?.lineNumber && !lineNumber) {
+      console.log("Setting lineNumber from user:", user.lineNumber);
+      setLineNumber(user.lineNumber);
+    }
+  }, [user]);
+  
+  // Initialize factories from props
+  useEffect(() => {
+    if (plantsList && plantsList.length > 0) {
+      console.log("Setting factories from props:", plantsList);
+      
+      // Create a mapping between local IDs and UUIDs
+      const idMapping: Record<string, string> = {};
+      plantsList.forEach(plant => {
+        if (plant.id && plant.id.includes('-')) {
+          // This is already a UUID, keep track of name to ID mapping
+          idMapping[plant.name.toLowerCase().replace(/\s+/g, '_')] = plant.id;
+          
+          // If this is Jay Jay Main Factory, also map A6 to it
+          if (plant.name === 'Jay Jay Main Factory') {
+            idMapping['a6'] = plant.id;
+          }
+        }
+      });
+      
+      console.log("Factory ID mapping:", idMapping);
+      
+      // Store the mapping in local storage for persistence
+      localStorage.setItem('factory-id-mapping', JSON.stringify(idMapping));
+      
+      setAvailableFactories(plantsList);
+      
+      // If no factory is selected but we have factories available, select the first one
+      if (!factoryId && plantsList.length > 0) {
+        console.log("Auto-selecting first factory:", plantsList[0].id);
+        setFactoryId(plantsList[0].id);
+      }
+    }
+    
+    // Debug to verify factory IDs
+    if (plantsList && plantsList.length > 0) {
+      console.log("Factory IDs from props:", plantsList.map(p => ({ id: p.id, name: p.name })));
+    }
+    
+    // Get operations from props
+    if (operationsList && operationsList.length > 0) {
+      setOperations(operationsList);
+    }
+  }, [plantsList, operationsList, factoryId]);
+  
+  // Helper function to get the proper UUID for a factory
+  const getProperFactoryId = (id: string): string => {
+    // If it's already a UUID, return it
+    if (id && id.includes('-')) {
+      return id;
+    }
+    
+    // Check if we have a mapping for this ID
+    const mapping = JSON.parse(localStorage.getItem('factory-id-mapping') || '{}');
+    if (mapping[id.toLowerCase()]) {
+      return mapping[id.toLowerCase()];
+    }
+    
+    // If this is 'A6', return the Jay Jay Main Factory UUID
+    if (id.toLowerCase() === 'a6') {
+      return '00000000-0000-0000-0000-000000000001';
+    }
+    
+    // Return the original ID as a fallback
+    return id;
+  };
+  
+  // When factory changes, update available lines
+  useEffect(() => {
+    if (factoryId) {
+      console.log("Factory ID changed to:", factoryId);
+      console.log("Available factories:", availableFactories.map(f => ({id: f.id, name: f.name})));
+      
+      const selectedFactory = availableFactories.find(f => f.id === factoryId);
+      console.log("Selected factory:", selectedFactory);
+      
+      if (selectedFactory && selectedFactory.lines && selectedFactory.lines.length > 0) {
+        setAvailableLines(selectedFactory.lines);
+        
+        // If current line number doesn't exist in this factory's lines, select the first one
+        if (!lineNumber || !selectedFactory.lines.includes(lineNumber)) {
+          console.log("Setting lineNumber to first available:", selectedFactory.lines[0]);
+          setLineNumber(selectedFactory.lines[0]);
+        }
+      } else {
+        // If factory has no lines, clear line selection
+        setAvailableLines([]);
+        setLineNumber('');
+      }
+    } else {
+      // If no factory selected, clear line selection
+      setAvailableLines([]);
+      setLineNumber('');
+    }
+  }, [factoryId, availableFactories]);
+
+  // Update operators when factory or line changes - use Supabase
+  useEffect(() => {
+    if (factoryId && lineNumber) {
+      const supabaseFactoryId = getProperFactoryId(factoryId);
+      console.log(`Getting operators for factory ${factoryId} (Supabase ID: ${supabaseFactoryId}), line ${lineNumber}`);
+      // Use the new hook to fetch operators from Supabase
+      fetchOperatorsByFactoryLine(supabaseFactoryId, lineNumber);
+    }
+  }, [factoryId, lineNumber, fetchOperatorsByFactoryLine]);
+
+  // Update operators list when Supabase query returns results
+  useEffect(() => {
+    if (!operatorsLoading && supabaseOperators.length > 0) {
+      console.log("Received operators from Supabase:", supabaseOperators);
+      setOperators(supabaseOperators);
+    } else if (!operatorsLoading) {
+      console.log("No operators found for this factory and line");
+      setOperators([]);
+    }
+  }, [supabaseOperators, operatorsLoading]);
+
+  // Filter defect types based on selected garment part
+  const filteredDefectTypes = useMemo(() => {
+    if (!garmentPart) return DEFECT_TYPES;
+    
+    const pair = COMMON_DEFECT_PAIRS.find(pair => pair.garmentCode === garmentPart);
+    if (!pair) return DEFECT_TYPES;
+    
+    return DEFECT_TYPES.filter(defect => pair.defectCodes.includes(defect.code));
+  }, [garmentPart]);
   
   const selectedFactory = availableFactories.find(f => f.id === factoryId);
 
+  // Reset defect type when garment part changes
   useEffect(() => {
-    if (user?.plantId) {
-      setFactoryId(user.plantId);
-    }
-    if (user?.lineNumber) {
-      setLineNumber(user.lineNumber);
-    }
-
-    const lineOperators = getOperatorsByLine(factoryId, lineNumber);
-    setOperators(lineOperators);
-  }, [user, factoryId, lineNumber]);
-
-  useEffect(() => {
-    const lineOperators = getOperatorsByLine(factoryId, lineNumber);
-    setOperators(lineOperators);
-    setSelectedOperator('');
-  }, [factoryId, lineNumber]);
+    setDefectType('');
+  }, [garmentPart]);
 
   // If operatorId is provided as prop, select that operator automatically
   useEffect(() => {
     if (operatorId) {
       setSelectedOperator(operatorId);
-      const selectedOp = getOperatorById(operatorId);
+      const selectedOp = operators.find(op => op.id === operatorId);
       if (selectedOp) {
         setOperatorInput(selectedOp.name);
         setOperatorIdInput(selectedOp.id);
-        setEpfNumber(selectedOp.epfNumber || '');
+        setEpfNumber(selectedOp.epf_number || '');
         if (selectedOp.operation) {
           setOperation(selectedOp.operation);
         }
       }
     }
-  }, [operatorId]);
+  }, [operatorId, operators]);
 
   const handleOperatorSelect = (operatorId: string) => {
+    console.log("Selected operator ID:", operatorId);
     setSelectedOperator(operatorId);
     const selectedOp = operators.find(op => op.id === operatorId);
     if (selectedOp) {
+      console.log("Selected operator details:", selectedOp);
       setOperatorInput(selectedOp.name);
       setOperatorIdInput(selectedOp.id);
-      setEpfNumber(selectedOp.epfNumber || '');
+      setEpfNumber(selectedOp.epf_number || '');
       if (selectedOp.operation) {
         setOperation(selectedOp.operation);
       }
@@ -139,19 +254,34 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     }, 3000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!defectType || !garmentPart || !factoryId || !lineNumber) {
-      toast.error("Please fill all required fields", {
-        description: "All fields are required to record a defect"
+    // Validate form fields
+    if (!defectType || !garmentPart) {
+      toast.error("Please select garment part and defect type", {
+        description: "Both fields are required to record a defect"
+      });
+      return;
+    }
+    
+    if (!factoryId || !lineNumber) {
+      toast.error("Please select factory and line", {
+        description: "Factory and line are required to record a defect"
+      });
+      return;
+    }
+    
+    if (!operatorInput && !selectedOperator) {
+      toast.error("Please select or enter an operator", {
+        description: "Operator information is required"
       });
       return;
     }
     
     setIsSubmitting(true);
     
-    setTimeout(() => {
+    try {
       const selectedDefectType = DEFECT_TYPES.find(d => d.code.toString() === defectType);
       const selectedGarmentPart = GARMENT_PARTS.find(p => p.code === garmentPart);
       
@@ -161,14 +291,33 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         return;
       }
       
+      // Find the matching factory object
+      const factory = availableFactories.find(f => f.id === factoryId);
+      console.log("Selected factory for submission:", factory);
+      
+      if (!factory) {
+        toast.error("Selected factory not found");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Ensure we have a valid operator ID (UUID format)
+      const validOperatorId = selectedOperator || user?.employeeId || 'guest';
+      console.log("Using operator ID for submission:", validOperatorId);
+      
+      // Convert the factory ID to a proper UUID if needed
+      const supabaseFactoryId = getProperFactoryId(factory.id);
+      console.log("Using Supabase factory ID:", supabaseFactoryId);
+      
+      // Create the defect record
       const newDefect: RecordedDefect = {
         id: crypto.randomUUID(),
         defectType: selectedDefectType,
         garmentPart: selectedGarmentPart,
         timestamp: new Date().toISOString(),
-        operatorId: operatorIdInput || user?.employeeId || 'guest',
+        operatorId: validOperatorId,
         operatorName: operatorInput || user?.name || 'Guest User',
-        factoryId,
+        factoryId: supabaseFactoryId, // Use the converted ID
         lineNumber,
         epfNumber: epfNumber || 'N/A',
         operation: operation || undefined,
@@ -176,27 +325,64 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         reworked: false
       };
       
-      addDefect(newDefect);
+      console.log("Recording defect:", newDefect);
       
-      if (onDefectRecorded) {
-        onDefectRecorded(newDefect);
-      }
-      
-      updatePlayerStats(newDefect);
-      
-      triggerSuccessAnimation();
-      
-      toast.success("Defect recorded successfully!", {
-        description: `${selectedGarmentPart.name} - ${selectedDefectType.name}`,
-        action: {
-          label: "View",
-          onClick: () => console.log("Viewed defect", newDefect.id)
+      // Now try to save to Supabase
+      try {
+        const result = await addDefectToSupabase(newDefect);
+        console.log("Supabase result:", result);
+        
+        triggerSuccessAnimation();
+        
+        toast.success("Defect recorded successfully!", {
+          description: `${selectedGarmentPart.name} - ${selectedDefectType.name}`,
+          action: {
+            label: "View",
+            onClick: () => console.log("Viewed defect", newDefect.id)
+          }
+        });
+        
+        if (onDefectRecorded) {
+          onDefectRecorded(newDefect);
         }
+        
+        resetForm();
+      } catch (error: any) {
+        console.error("Error recording defect:", error);
+        
+        // Provide more specific error messages based on error type
+        if (error.code === '23503') {
+          toast.error("Invalid reference data", {
+            description: "One of the selected values (factory, operator, etc.) is not valid."
+          });
+        } else if (error.message?.includes('factory_id')) {
+          toast.error("Factory ID issue", {
+            description: "There was a problem with the selected factory. Please try selecting a different factory."
+          });
+        } else if (error.message?.includes('created_by')) {
+          toast.error("Operator ID issue", {
+            description: "There was a problem with the selected operator. Please check operator information."
+          });
+        } else if (error.message?.includes('network')) {
+          toast.error("Network error", {
+            description: "Please check your internet connection and try again."
+          });
+        } else {
+          toast.error("Error recording defect", {
+            description: error.message || "An unexpected error occurred. Please check your inputs and try again."
+          });
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
+    } catch (error: any) {
+      toast.error("Error recording defect", {
+        description: error.message || "An unexpected error occurred"
       });
-      
-      resetForm();
+      console.error("Error recording defect:", error);
+    } finally {
       setIsSubmitting(false);
-    }, 500);
+    }
   };
   
   const updatePlayerStats = (defect: RecordedDefect) => {
@@ -238,6 +424,12 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     }
   };
 
+  // Update factory dropdown onValueChange
+  const handleFactoryChange = (value: string) => {
+    console.log("Setting factory ID to:", value);
+    setFactoryId(value);
+  };
+
   return (
     <div className="w-full bg-card rounded-lg border shadow-md overflow-hidden relative">
       {showConfetti && (
@@ -264,12 +456,14 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           <div className="space-y-2">
             <Label htmlFor="factory" className="text-blue-800">Factory</Label>
             <Select 
-              value={factoryId} 
-              onValueChange={setFactoryId}
+              value={factoryId || undefined} 
+              onValueChange={handleFactoryChange}
               disabled={user?.role === 'qc'}
             >
               <SelectTrigger id="factory" className="border-blue-200">
-                <SelectValue placeholder="Select factory" />
+                <SelectValue placeholder="Select factory">
+                  {selectedFactory ? selectedFactory.name : "Select factory"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {availableFactories.map(factory => (
@@ -279,6 +473,9 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {availableFactories.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">No factories available</p>
+            )}
           </div>
           
           <div className="space-y-2">
@@ -292,7 +489,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 <SelectValue placeholder="Select line" />
               </SelectTrigger>
               <SelectContent>
-                {selectedFactory?.lines.map(line => (
+                {availableLines.map(line => (
                   <SelectItem key={line} value={line}>
                     Line {line}
                   </SelectItem>
@@ -372,22 +569,6 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="defectType" className="text-blue-800">Defect Type</Label>
-            <Select value={defectType} onValueChange={setDefectType}>
-              <SelectTrigger id="defectType" className="border-blue-200">
-                <SelectValue placeholder="Select defect" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                {DEFECT_TYPES.map(defect => (
-                  <SelectItem key={defect.code} value={defect.code.toString()}>
-                    {defect.code}: {defect.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
             <Label htmlFor="garmentPart" className="text-blue-800">Garment Part</Label>
             <Select value={garmentPart} onValueChange={setGarmentPart}>
               <SelectTrigger id="garmentPart" className="border-blue-200">
@@ -401,6 +582,31 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="defectType" className="text-blue-800">Defect Type</Label>
+            <Select 
+              value={defectType} 
+              onValueChange={setDefectType}
+              disabled={!garmentPart}
+            >
+              <SelectTrigger id="defectType" className="border-blue-200">
+                <SelectValue placeholder={garmentPart ? "Select defect" : "Select a garment part first"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {filteredDefectTypes.map(defect => (
+                  <SelectItem key={defect.code} value={defect.code.toString()}>
+                    {defect.code}: {defect.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {garmentPart && filteredDefectTypes.length < DEFECT_TYPES.length && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Showing only defects applicable to this garment part
+              </p>
+            )}
           </div>
         </div>
         
@@ -428,37 +634,35 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           <h4 className="text-sm font-medium text-blue-800">Recent Defects</h4>
           <Badge variant="outline" className="text-xs bg-blue-100/50 border-blue-200 text-blue-800">
             <Clock className="mr-1 h-3 w-3" />
-            Last {recentDefects.length}
+            Last {defects.length}
           </Badge>
         </div>
         
         <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
-          {recentDefects.length > 0 ? (
-            recentDefects
-              .filter(d => user?.role === 'qc' || user?.role === 'admin' ? true : d.factoryId === user?.plantId)
+          {defects.length > 0 ? (
+            defects
+              .filter(d => user?.role === 'qc' || user?.role === 'admin' ? true : d.factory_id === user?.plantId)
               .map(defect => (
                 <div key={defect.id} className="flex items-center justify-between p-3 rounded-md text-sm bg-white shadow-sm border border-blue-100 hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-2">
-                    {defect.status === 'verified' ? (
+                    {defect.validated ? (
                       <Check className="h-4 w-4 text-green-500" />
-                    ) : defect.status === 'rejected' ? (
-                      <AlertTriangle className="h-4 w-4 text-red-500" />
                     ) : (
                       <Clock className="h-4 w-4 text-amber-500" />
                     )}
                     <div>
                       <span className="font-medium text-blue-900">
-                        {defect.garmentPart.name} - {defect.defectType.name}
+                        {defect.garment_part} - {defect.defect_type}
                       </span>
                       <div className="text-xs text-muted-foreground">
-                        {defect.operatorName} • EPF: {defect.epfNumber || 'N/A'}
+                        {defect.created_by} • EPF: {defect.epf_number || 'N/A'}
                         {defect.operation && ` • ${defect.operation}`}
                       </div>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground flex flex-col items-end">
-                    <span>{new Date(defect.timestamp).toLocaleTimeString()}</span>
-                    {defect.status === 'pending' && (
+                    <span>{new Date(defect.created_at).toLocaleTimeString()}</span>
+                    {!defect.validated && (
                       <Badge variant="outline" className="mt-1 bg-amber-50 text-amber-700 border-amber-200">
                         Awaiting Validation
                       </Badge>

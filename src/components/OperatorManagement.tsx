@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect } from 'react';
-import { useDefectSync } from '@/hooks/use-defect-sync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,12 +9,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { FACTORIES, OPERATIONS } from '@/lib/game-data';
 import { useAuth } from '@/context/auth-context';
+import { usePlants, useOperations, useUserManagement } from '@/lib/supabase/hooks';
 
 const OperatorManagement = () => {
-  const { operators, addOperator, updateOperator, removeOperator } = useDefectSync();
+  const { users, loading: usersLoading, addUser, updateUser, deleteUser } = useUserManagement();
+  const { plants, loading: plantsLoading } = usePlants();
+  const { operations, loading: operationsLoading } = useOperations();
   const { user } = useAuth();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -24,18 +25,22 @@ const OperatorManagement = () => {
   
   // Form states
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [epfNumber, setEpfNumber] = useState('');
-  const [factoryId, setFactoryId] = useState(user?.plantId || 'A6');
-  const [line, setLine] = useState('');
-  const [operation, setOperation] = useState('');
+  const [plantId, setPlantId] = useState('');
+  const [lineNumber, setLineNumber] = useState('');
+  const [operationId, setOperationId] = useState('');
+  const [role, setRole] = useState('operator');
   
   // Reset form
   const resetForm = () => {
     setName('');
+    setEmail('');
     setEpfNumber('');
-    setFactoryId(user?.plantId || 'A6');
-    setLine('');
-    setOperation('');
+    setPlantId('');
+    setLineNumber('');
+    setOperationId('');
+    setRole('operator');
   };
   
   // Close add dialog
@@ -55,81 +60,104 @@ const OperatorManagement = () => {
   const prepareEdit = (operator: any) => {
     setSelectedOperator(operator);
     setName(operator.name);
-    setEpfNumber(operator.epfNumber);
-    setFactoryId(operator.factory);
-    setLine(operator.line);
-    setOperation(operator.operation || '');
+    setEmail(operator.email);
+    setEpfNumber(operator.epf_number);
+    setPlantId(operator.plant_id || '');
+    setLineNumber(operator.line_number || '');
+    setRole(operator.role);
     setIsEditDialogOpen(true);
   };
   
   // Handle add operator
-  const handleAddOperator = () => {
-    if (!name || !epfNumber || !factoryId || !line) {
+  const handleAddOperator = async () => {
+    if (!name || !email || !epfNumber || !plantId || !lineNumber) {
       toast.error("All fields are required", {
         description: "Please fill in all required fields"
       });
       return;
     }
     
-    const newOperator = {
-      id: crypto.randomUUID(),
-      name,
-      epfNumber,
-      factory: factoryId,
-      line,
-      operation: operation || undefined
-    };
-    
-    const result = addOperator(newOperator);
-    if (result) {
+    try {
+      const newUser = {
+        name,
+        email,
+        epf_number: epfNumber,
+        role,
+        plant_id: plantId,
+        line_number: lineNumber,
+        password: 'defaultpassword', // This should be handled securely in production
+      };
+      
+      await addUser(newUser);
+      toast.success("Operator added successfully");
       closeAddDialog();
+    } catch (error: any) {
+      toast.error("Error adding operator", {
+        description: error.message || "An unexpected error occurred"
+      });
     }
   };
   
   // Handle update operator
-  const handleUpdateOperator = () => {
-    if (!selectedOperator || !name || !epfNumber || !factoryId || !line) {
+  const handleUpdateOperator = async () => {
+    if (!selectedOperator || !name || !email || !epfNumber) {
       toast.error("All fields are required", {
         description: "Please fill in all required fields"
       });
       return;
     }
     
-    const updatedData = {
-      name,
-      epfNumber,
-      factory: factoryId,
-      line,
-      operation: operation || undefined
-    };
-    
-    const result = updateOperator(selectedOperator.id, updatedData);
-    if (result) {
+    try {
+      const updatedData = {
+        name,
+        email,
+        epf_number: epfNumber,
+        role,
+        plant_id: plantId,
+        line_number: lineNumber,
+      };
+      
+      await updateUser(selectedOperator.id, updatedData);
+      toast.success("Operator updated successfully");
       closeEditDialog();
+    } catch (error: any) {
+      toast.error("Error updating operator", {
+        description: error.message || "An unexpected error occurred"
+      });
     }
   };
   
   // Handle delete operator
-  const handleDeleteOperator = (operatorId: string) => {
+  const handleDeleteOperator = async (operatorId: string) => {
     if (window.confirm("Are you sure you want to remove this operator?")) {
-      removeOperator(operatorId);
+      try {
+        await deleteUser(operatorId);
+        toast.success("Operator removed successfully");
+      } catch (error: any) {
+        toast.error("Error removing operator", {
+          description: error.message || "An unexpected error occurred"
+        });
+      }
     }
   };
   
   // Filter operators based on search term
+  const operators = users?.filter(user => user.role !== 'admin') || [];
   const filteredOperators = operators.filter(op => 
     op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    op.epfNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    op.factory.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    op.line.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (op.operation && op.operation.toLowerCase().includes(searchTerm.toLowerCase()))
+    op.epf_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (op.line_number && op.line_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (op.email && op.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
-  // Get factory by ID
-  const getFactoryName = (factoryId: string) => {
-    const factory = FACTORIES.find(f => f.id === factoryId);
-    return factory ? factory.name : factoryId;
+  // Get plant name by ID
+  const getPlantName = (plantId: string) => {
+    const plant = plants?.find(p => p.id === plantId);
+    return plant ? plant.name : plantId;
   };
+  
+  // Loading state
+  const isLoading = usersLoading || plantsLoading || operationsLoading;
   
   return (
     <Card className="shadow-md">
@@ -151,7 +179,7 @@ const OperatorManagement = () => {
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto" disabled={isLoading}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Operator
               </Button>
@@ -176,6 +204,17 @@ const OperatorManagement = () => {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    className="col-span-3" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="epf" className="text-right">EPF Number</Label>
                   <Input 
                     id="epf" 
@@ -186,15 +225,29 @@ const OperatorManagement = () => {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-2">
-                  <Label htmlFor="factory" className="text-right">Factory</Label>
-                  <Select value={factoryId} onValueChange={setFactoryId}>
-                    <SelectTrigger id="factory" className="col-span-3">
-                      <SelectValue placeholder="Select factory" />
+                  <Label htmlFor="role" className="text-right">Role</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger id="role" className="col-span-3">
+                      <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FACTORIES.map(factory => (
-                        <SelectItem key={factory.id} value={factory.id}>
-                          {factory.name}
+                      <SelectItem value="operator">Operator</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="qc">Quality Control</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="plant" className="text-right">Plant</Label>
+                  <Select value={plantId} onValueChange={setPlantId}>
+                    <SelectTrigger id="plant" className="col-span-3">
+                      <SelectValue placeholder="Select plant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plants?.map(plant => (
+                        <SelectItem key={plant.id} value={plant.id}>
+                          {plant.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -203,12 +256,12 @@ const OperatorManagement = () => {
                 
                 <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="line" className="text-right">Line</Label>
-                  <Select value={line} onValueChange={setLine}>
+                  <Select value={lineNumber} onValueChange={setLineNumber}>
                     <SelectTrigger id="line" className="col-span-3">
                       <SelectValue placeholder="Select line" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FACTORIES.find(f => f.id === factoryId)?.lines.map(line => (
+                      {plants?.find(p => p.id === plantId)?.lines.map(line => (
                         <SelectItem key={line} value={line}>
                           Line {line}
                         </SelectItem>
@@ -219,12 +272,12 @@ const OperatorManagement = () => {
                 
                 <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="operation" className="text-right">Operation</Label>
-                  <Select value={operation} onValueChange={setOperation}>
+                  <Select value={operationId} onValueChange={setOperationId}>
                     <SelectTrigger id="operation" className="col-span-3">
                       <SelectValue placeholder="Select operation" />
                     </SelectTrigger>
                     <SelectContent>
-                      {OPERATIONS.map(op => (
+                      {operations?.map(op => (
                         <SelectItem key={op.id} value={op.id}>
                           {op.name}
                         </SelectItem>
@@ -251,7 +304,7 @@ const OperatorManagement = () => {
               <DialogHeader>
                 <DialogTitle>Edit Operator</DialogTitle>
                 <DialogDescription>
-                  Update the operator's information.
+                  Update the operator's information
                 </DialogDescription>
               </DialogHeader>
               
@@ -267,6 +320,17 @@ const OperatorManagement = () => {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="edit-email" className="text-right">Email</Label>
+                  <Input 
+                    id="edit-email" 
+                    type="email" 
+                    className="col-span-3" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="edit-epf" className="text-right">EPF Number</Label>
                   <Input 
                     id="edit-epf" 
@@ -277,15 +341,29 @@ const OperatorManagement = () => {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-2">
-                  <Label htmlFor="edit-factory" className="text-right">Factory</Label>
-                  <Select value={factoryId} onValueChange={setFactoryId}>
-                    <SelectTrigger id="edit-factory" className="col-span-3">
-                      <SelectValue placeholder="Select factory" />
+                  <Label htmlFor="edit-role" className="text-right">Role</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger id="edit-role" className="col-span-3">
+                      <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FACTORIES.map(factory => (
-                        <SelectItem key={factory.id} value={factory.id}>
-                          {factory.name}
+                      <SelectItem value="operator">Operator</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="qc">Quality Control</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="edit-plant" className="text-right">Plant</Label>
+                  <Select value={plantId} onValueChange={setPlantId}>
+                    <SelectTrigger id="edit-plant" className="col-span-3">
+                      <SelectValue placeholder="Select plant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plants?.map(plant => (
+                        <SelectItem key={plant.id} value={plant.id}>
+                          {plant.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -294,12 +372,12 @@ const OperatorManagement = () => {
                 
                 <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="edit-line" className="text-right">Line</Label>
-                  <Select value={line} onValueChange={setLine}>
+                  <Select value={lineNumber} onValueChange={setLineNumber}>
                     <SelectTrigger id="edit-line" className="col-span-3">
                       <SelectValue placeholder="Select line" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FACTORIES.find(f => f.id === factoryId)?.lines.map(line => (
+                      {plants?.find(p => p.id === plantId)?.lines.map(line => (
                         <SelectItem key={line} value={line}>
                           Line {line}
                         </SelectItem>
@@ -310,12 +388,12 @@ const OperatorManagement = () => {
                 
                 <div className="grid grid-cols-4 items-center gap-2">
                   <Label htmlFor="edit-operation" className="text-right">Operation</Label>
-                  <Select value={operation} onValueChange={setOperation}>
+                  <Select value={operationId} onValueChange={setOperationId}>
                     <SelectTrigger id="edit-operation" className="col-span-3">
                       <SelectValue placeholder="Select operation" />
                     </SelectTrigger>
                     <SelectContent>
-                      {OPERATIONS.map(op => (
+                      {operations?.map(op => (
                         <SelectItem key={op.id} value={op.id}>
                           {op.name}
                         </SelectItem>
@@ -337,84 +415,73 @@ const OperatorManagement = () => {
           </Dialog>
         </div>
         
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>EPF Number</TableHead>
-                <TableHead>Factory</TableHead>
-                <TableHead>Line</TableHead>
-                <TableHead>Operation</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOperators.length > 0 ? (
-                filteredOperators.map(operator => (
+        {isLoading ? (
+          <div className="text-center p-10 text-muted-foreground">
+            Loading operators...
+          </div>
+        ) : filteredOperators.length > 0 ? (
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>EPF Number</TableHead>
+                  <TableHead>Plant</TableHead>
+                  <TableHead>Line</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOperators.map(operator => (
                   <TableRow key={operator.id}>
-                    <TableCell className="font-medium">{operator.name}</TableCell>
-                    <TableCell>{operator.epfNumber}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span>{operator.name}</span>
+                        <span className="text-xs text-muted-foreground">{operator.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{operator.epf_number}</TableCell>
+                    <TableCell>{operator.plant_id ? getPlantName(operator.plant_id) : '-'}</TableCell>
+                    <TableCell>{operator.line_number || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        {getFactoryName(operator.factory)}
+                      <Badge variant="outline" className={
+                        operator.role === 'supervisor' ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                        operator.role === 'qc' ? 'bg-purple-50 text-purple-700 border-purple-300' :
+                        'bg-green-50 text-green-700 border-green-300'
+                      }>
+                        {operator.role.charAt(0).toUpperCase() + operator.role.slice(1)}
                       </Badge>
                     </TableCell>
-                    <TableCell>Line {operator.line}</TableCell>
-                    <TableCell>{operator.operation || "-"}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
+                      <div className="flex justify-end gap-1">
                         <Button 
                           variant="ghost" 
-                          size="icon"
+                          size="icon" 
                           onClick={() => prepareEdit(operator)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
-                          size="icon"
+                          size="icon" 
+                          className="text-destructive hover:text-destructive" 
                           onClick={() => handleDeleteOperator(operator.id)}
-                          className="text-red-500 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    {searchTerm ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <X className="h-8 w-8" />
-                        <p>No operators found matching "{searchTerm}"</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSearchTerm('')}
-                        >
-                          Clear search
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2">
-                        <p>No operators have been added yet</p>
-                        <Button 
-                          size="sm"
-                          onClick={() => setIsAddDialogOpen(true)}
-                        >
-                          Add your first operator
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="text-center p-10 text-muted-foreground">
+            {searchTerm ? 'No operators match your search.' : 'No operators found. Add your first operator.'}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

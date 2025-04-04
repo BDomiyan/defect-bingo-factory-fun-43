@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BingoCell } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -53,7 +52,7 @@ const BingoCard = ({
     }
     
     if (!cell.marked && cell.garmentPart && cell.defectType) {
-      toast.success('Validating defect...', {
+      toast.info('Opening validation...', {
         description: `${cell.garmentPart.name} - ${cell.defectType.name}`,
         position: 'bottom-right',
       });
@@ -84,7 +83,8 @@ const BingoCard = ({
 
   const isEmpty = !cell.garmentPart && !cell.defectType;
   const isComplete = cell.garmentPart && cell.defectType;
-  const isPartiallyComplete = (cell.garmentPart || cell.defectType) && !isComplete;
+  const needsValidation = isComplete && !cell.marked;
+  const isValidated = isComplete && cell.marked;
   const showHoverEffects = isHovered || isTouchActive;
 
   // Animation classes for different states
@@ -125,20 +125,10 @@ const BingoCard = ({
     >
       {isEmpty ? (
         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-          {isDragOver ? (
-            <Plus className="h-6 w-6 text-primary animate-pulse" />
-          ) : (
-            isMobile ? (
-              <Plus className="h-5 w-5 opacity-40" />
-            ) : (
-              <Move className="h-5 w-5 opacity-40" />
-            )
-          )}
-          {!isDragOver && (
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-xs text-muted-foreground">
-              {isMobile ? "Tap to place" : "Drop here"}
-            </div>
-          )}
+          <Plus className="h-5 w-5 opacity-40" />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-xs text-muted-foreground">
+            Add Defect
+          </div>
         </div>
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-1 sm:p-2">
@@ -171,8 +161,8 @@ const BingoCard = ({
             )}
           </div>
           
-          {/* Marked indicator */}
-          {cell.marked && (
+          {/* Validation state indicators */}
+          {isValidated && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/0">
               <div className="absolute inset-0 bg-primary/5 animate-pulse-subtle"></div>
               <CheckCircle className="h-8 w-8 text-primary opacity-80" />
@@ -184,8 +174,8 @@ const BingoCard = ({
             </div>
           )}
           
-          {/* Hover effect for complete cells that aren't marked yet */}
-          {showHoverEffects && isComplete && !cell.marked && (
+          {/* Action button for unvalidated defects */}
+          {showHoverEffects && needsValidation && (
             <div className="absolute inset-x-0 bottom-2 flex justify-center">
               <Button
                 variant="ghost"
@@ -201,13 +191,6 @@ const BingoCard = ({
               >
                 Validate
               </Button>
-            </div>
-          )}
-          
-          {/* Partially complete indicator */}
-          {isPartiallyComplete && (
-            <div className="absolute bottom-1 right-1">
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
             </div>
           )}
         </div>

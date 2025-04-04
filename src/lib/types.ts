@@ -1,4 +1,3 @@
-
 export interface GarmentPart {
   code: string;
   name: string;
@@ -21,7 +20,7 @@ export interface BingoCell {
 export interface Player {
   id: string;
   name: string;
-  role: 'operator' | 'supervisor' | 'admin';
+  role: string;
   score: number;
   bingoCount: number;
   defectsFound: number;

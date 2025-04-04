@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { BingoBoard, GarmentPart, DefectType } from '@/lib/types';
@@ -8,9 +7,10 @@ interface UseDragDropGridProps {
   boardSize: number;
   onBoardChange?: (board: BingoBoard) => void;
   onBingo?: (lines: Array<{type: string, index: number}>) => void;
+  initialBoard?: BingoBoard;
 }
 
-export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDropGridProps) => {
+export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo, initialBoard }: UseDragDropGridProps) => {
   // Initialize an empty board
   const initializeEmptyBoard = useCallback(() => {
     const board: BingoBoard = [];
@@ -27,7 +27,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     return board;
   }, [boardSize]);
 
-  const [board, setBoard] = useState<BingoBoard>(initializeEmptyBoard());
+  const [board, setBoard] = useState<BingoBoard>(initialBoard || initializeEmptyBoard());
   const [draggedItem, setDraggedItem] = useState<{
     type: 'defect' | 'garment' | null;
     data: DefectType | GarmentPart | null;
@@ -133,48 +133,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     
     return isValid;
   }, [board, isValidDefectPair, onBoardChange]);
-
-  // Mark a cell as validated
-  const markCell = useCallback((rowIndex: number, colIndex: number, playerName: string) => {
-    // Only mark cells that have both garment part and defect type
-    if (!board[rowIndex][colIndex].garmentPart || !board[rowIndex][colIndex].defectType) {
-      toast.error("Cell is incomplete", {
-        description: "Need both garment part and defect type"
-      });
-      return false;
-    }
-    
-    // Check if the pair is valid
-    const garmentPart = board[rowIndex][colIndex].garmentPart!;
-    const defectType = board[rowIndex][colIndex].defectType!;
-    
-    if (!isValidDefectPair(garmentPart, defectType)) {
-      toast.error("Invalid defect pair", {
-        description: `${garmentPart.name} rarely has ${defectType.name} issues`
-      });
-      return false;
-    }
-
-    const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
-    newBoard[rowIndex][colIndex] = {
-      ...newBoard[rowIndex][colIndex],
-      marked: true,
-      validatedBy: playerName,
-      validatedAt: new Date()
-    };
-    
-    setBoard(newBoard);
-    
-    if (onBoardChange) {
-      onBoardChange(newBoard);
-    }
-    
-    // Check for bingo after marking the cell
-    checkForBingo(newBoard);
-    
-    return true;
-  }, [board, isValidDefectPair, onBoardChange]);
-
+  
   // Reset the board to empty cells
   const resetBoard = useCallback(() => {
     const emptyBoard = initializeEmptyBoard();
@@ -191,7 +150,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     const filledCells = board.flat().filter(cell => cell.marked).length;
     return Math.round((filledCells / totalCells) * 100);
   }, [board, boardSize]);
-  
+
   // Check for bingo (horizontal, vertical, diagonal)
   const checkForBingo = useCallback((currentBoard: BingoBoard = board) => {
     const newCompletedLines: Array<{type: string, index: number}> = [];
@@ -260,6 +219,45 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo }: UseDragDr
     
     return [...completedLines, ...newCompletedLines];
   }, [board, boardSize, completedLines, onBingo]);
+  
+  // Mark a cell as validated
+  const markCell = useCallback((rowIndex: number, colIndex: number, playerName: string) => {
+    // Only mark cells that have both garment part and defect type
+    // This check should be silent without error message because it was already validated by DefectModal
+    if (!board[rowIndex][colIndex].garmentPart || !board[rowIndex][colIndex].defectType) {
+      console.log("Cell validation failed: Cell is incomplete (missing garment part or defect type)");
+      return false;
+    }
+    
+    // Check if the pair is valid
+    const garmentPart = board[rowIndex][colIndex].garmentPart!;
+    const defectType = board[rowIndex][colIndex].defectType!;
+    
+    if (!isValidDefectPair(garmentPart, defectType)) {
+      // This error is less likely since we already checked in addDefectToCell
+      console.log("Cell validation failed: Invalid defect pair");
+      return false;
+    }
+
+    const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
+    newBoard[rowIndex][colIndex] = {
+      ...newBoard[rowIndex][colIndex],
+      marked: true,
+      validatedBy: playerName,
+      validatedAt: new Date()
+    };
+    
+    setBoard(newBoard);
+    
+    if (onBoardChange) {
+      onBoardChange(newBoard);
+    }
+    
+    // Check for bingo after marking the cell
+    checkForBingo(newBoard);
+    
+    return true;
+  }, [board, isValidDefectPair, onBoardChange, checkForBingo]);
 
   // Effect to check for bingo when board changes
   useEffect(() => {

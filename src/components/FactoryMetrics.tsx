@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -13,29 +12,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Printer, FileSpreadsheet, BarChart3, ArrowUpRight, ArrowDownRight, Cog } from "lucide-react";
+import { Calendar, Printer, FileSpreadsheet, BarChart3, ArrowUpRight, ArrowDownRight, Cog, Loader2 } from "lucide-react";
 import FactoryAnalyticsTable from "@/components/FactoryAnalyticsTable";
 import RealTimeMetricsCard from "@/components/RealTimeMetricsCard";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useDefectSync } from '@/hooks/use-defect-sync';
 import { format } from 'date-fns';
+import { useDefects } from '@/lib/supabase/hooks';
 
-const FactoryMetrics = () => {
+interface FactoryMetricsProps {
+  plants?: { id: string; name: string; lines: string[] }[];
+}
+
+const FactoryMetrics: React.FC<FactoryMetricsProps> = ({ plants = [] }) => {
   const [activeTab, setActiveTab] = useState("production");
   const [currentDate] = useState(new Date());
+  
+  // Use both defect sync (for compatibility) and Supabase hooks for real data
+  const { defects, loading: loadingDefects } = useDefects();
+  
   const { 
     recentDefects, 
     defectsByFactory, 
     defectsByLine, 
-    totalDefects, 
-    verifiedDefects, 
-    rejectedDefects, 
-    reworkedDefects, 
+    totalDefects: localTotalDefects, 
+    verifiedDefects: localVerifiedDefects, 
+    rejectedDefects: localRejectedDefects, 
+    reworkedDefects: localReworkedDefects, 
     getTopDefectType, 
     getTopGarmentPart,
     getAllowedPlants,
     getPlantStats
   } = useDefectSync();
+  
+  // Use Supabase data for real metrics
+  const totalDefects = defects.length || localTotalDefects;
+  const verifiedDefects = defects.filter(d => d.validated).length || localVerifiedDefects;
+  const rejectedDefects = defects.filter(d => d.validated_by && !d.validated).length || localRejectedDefects;
+  // Since 'reworked' property doesn't exist in defects, use localReworkedDefects or a default
+  const reworkedDefects = localReworkedDefects || 0; // Use local data or default to 0
   
   const [incentiveRules, setIncentiveRules] = useLocalStorage('incentive-rules', {
     excellent: { rate: 5.00, threshold: 98 },
@@ -46,7 +61,20 @@ const FactoryMetrics = () => {
   
   const [editingRules, setEditingRules] = useState(false);
   const [tempRules, setTempRules] = useState(incentiveRules);
-  const [plantFilters, setPlantFilters] = useState<string[]>(getAllowedPlants());
+  
+  // Use plants from props if available, otherwise use getAllowedPlants
+  const availablePlants = plants.length > 0 
+    ? plants.map(p => p.id) 
+    : getAllowedPlants();
+    
+  const [plantFilters, setPlantFilters] = useState<string[]>(availablePlants);
+
+  // Update plant filters when plants change
+  useEffect(() => {
+    if (plants.length > 0) {
+      setPlantFilters(plants.map(p => p.id));
+    }
+  }, [plants]);
 
   // Toggle plant filter
   const togglePlantFilter = (plantId: string) => {
@@ -57,27 +85,30 @@ const FactoryMetrics = () => {
     }
   };
 
-  // Calculate metrics based on recorded defects
+  // Calculate metrics based on Supabase defects
   const calculateDefectRate = () => {
-    if (recentDefects.length === 0) return 0;
-    const todayDefects = recentDefects.filter(d => {
-      const defectDate = new Date(d.timestamp);
+    if (defects.length === 0) return 0;
+    
+    // Count defects created today
+    const todayDefects = defects.filter(d => {
+      const defectDate = new Date(d.created_at);
       const today = new Date();
       return defectDate.getDate() === today.getDate() && 
              defectDate.getMonth() === today.getMonth() && 
              defectDate.getFullYear() === today.getFullYear();
     });
+    
     return todayDefects.length;
   };
 
   const calculateRejectRate = () => {
-    if (recentDefects.length === 0) return 0;
-    return Math.round((rejectedDefects / totalDefects) * 100) / 100;
+    if (totalDefects === 0) return "0";
+    return (rejectedDefects / totalDefects).toFixed(2);
   };
 
   const calculateReworkRate = () => {
-    if (recentDefects.length === 0) return 0;
-    return Math.round((reworkedDefects / totalDefects) * 100) / 100;
+    if (totalDefects === 0) return "0";
+    return (reworkedDefects / totalDefects).toFixed(2);
   };
 
   const calculateEfficiency = () => {
@@ -101,13 +132,41 @@ const FactoryMetrics = () => {
     return incentiveRules.poor.rate;
   };
 
+  // Process Supabase defects for factory analysis
+  const processDefectsByFactory = () => {
+    if (defects.length === 0) return [];
+    
+    return defects.reduce((acc, defect) => {
+      // Find factory in accumulator, or create it
+      const factoryId = defect.factory_id;
+      const factory = acc.find(f => f.id === factoryId);
+      
+      // Find the plant name from the plants array
+      const plantName = plants.find(p => p.id === factoryId)?.name || `Plant ${factoryId}`;
+      
+      if (factory) {
+        factory.defects.push(defect);
+      } else {
+        acc.push({
+          id: factoryId,
+          name: plantName,
+          defects: [defect],
+        });
+      }
+      return acc;
+    }, [] as Array<{id: string, name: string, defects: any[]}>);
+  };
+  
+  // Get processed defects by factory
+  const supabaseDefectsByFactory = processDefectsByFactory();
+
   // Create source data for metrics cards
   const metricsData = {
     defectRate: calculateDefectRate(),
     rejectRate: calculateRejectRate(),
     reworkRate: calculateReworkRate(),
     totalDefects: totalDefects,
-    factoryCount: defectsByFactory.length,
+    factoryCount: supabaseDefectsByFactory.length || defectsByFactory.length,
     efficiency: calculateEfficiency(),
     aqlPassRate: calculateAQLPassRate(),
     incentiveRate: getCurrentIncentiveRate()
@@ -120,21 +179,35 @@ const FactoryMetrics = () => {
 
   // Create efficiency tab content with progress bars
   const renderEfficiencyContent = () => {
+    // Use Supabase data for factories first, fall back to local data
+    const dataSource = supabaseDefectsByFactory.length > 0 ? supabaseDefectsByFactory : defectsByFactory;
+    
     // Filter factories based on plant filters
-    const filteredFactories = defectsByFactory.filter(factory => 
+    const filteredFactories = dataSource.filter(factory => 
       plantFilters.includes(factory.id)
     );
     
     const plantEfficiencies = filteredFactories.map(factory => {
       const total = factory.defects.length;
-      const reworked = factory.defects.filter(d => d.reworked).length;
+      // Check if defect has reworked property before using it
+      const reworked = factory.defects.filter(d => d.reworked || false).length;
       const efficiency = total === 0 ? 100 : Math.round(((total - reworked) / total) * 100);
       
       return {
         id: factory.id,
         name: factory.name,
         efficiency,
-        defectCount: total
+        defectCount: total,
+        // Add required properties for FactoryAnalyticsTable
+        line: '',
+        department: '',
+        role: '',
+        defectsFound: total,
+        defectsFixed: reworked,
+        reworkRate: total === 0 ? 0 : Math.round((reworked / total) * 100),
+        status: efficiency >= 95 ? 'excellent' as const : 
+                efficiency >= 85 ? 'good' as const : 
+                efficiency >= 75 ? 'average' as const : 'poor' as const
       };
     });
 
@@ -147,49 +220,67 @@ const FactoryMetrics = () => {
           </div>
         </div>
         
-        <div className="flex gap-2 mb-4">
-          {getAllowedPlants().map(plantId => (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {plants.map(plant => (
             <Button 
-              key={plantId}
-              variant={plantFilters.includes(plantId) ? "default" : "outline"}
+              key={plant.id}
+              variant={plantFilters.includes(plant.id) ? "default" : "outline"}
               size="sm"
-              onClick={() => togglePlantFilter(plantId)}
+              onClick={() => togglePlantFilter(plant.id)}
             >
-              Plant {plantId}
+              {plant.name}
             </Button>
           ))}
         </div>
         
-        <div className="space-y-4">
-          {plantEfficiencies.length > 0 ? (
-            plantEfficiencies.map(plant => (
-              <div key={plant.id} className="space-y-2">
+        {plantEfficiencies.length > 0 ? (
+          <div className="space-y-4">
+            {plantEfficiencies.map(plant => (
+              <div key={plant.id} className="space-y-1">
                 <div className="flex justify-between items-center">
                   <div className="font-medium">{plant.name}</div>
-                  <div className="text-sm">
-                    {plant.efficiency}% <span className="text-muted-foreground">({plant.defectCount} defects)</span>
-                  </div>
+                  <div className="text-sm">{plant.efficiency}% efficient</div>
                 </div>
-                <Progress value={plant.efficiency} className="h-2" />
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div 
+                    className={`h-full ${plant.efficiency > 90 ? 'bg-green-500' : plant.efficiency > 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${plant.efficiency}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Defects: {plant.defectCount} · Reworked: {plant.defectCount - Math.round(plant.defectCount * (plant.efficiency / 100))}
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center p-6 text-muted-foreground">
-              No plant data available
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 text-center text-muted-foreground">
+            No efficiency data available for the selected plants.
+          </div>
+        )}
         
-        <div className="bg-muted/30 p-4 rounded-lg">
-          <h4 className="font-medium mb-2">Efficiency Calculation</h4>
-          <p className="text-sm text-muted-foreground">
-            Efficiency is calculated based on the ratio of successfully processed items to total items.
-            Lower rework rates indicate higher efficiency.
-          </p>
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-medium mb-2">Efficiency Breakdown</h4>
+          <FactoryAnalyticsTable 
+            data={plantEfficiencies} 
+            title="Plant Efficiency Analytics"
+            description="Quality metrics for each plant"
+          />
         </div>
       </div>
     );
   };
+
+  if (loadingDefects && plants.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading factory metrics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -216,15 +307,15 @@ const FactoryMetrics = () => {
         </div>
       </div>
       
-      <div className="flex gap-2 mb-4">
-        {getAllowedPlants().map(plantId => (
+      <div className="flex flex-wrap gap-2 mb-4">
+        {plants.map(plant => (
           <Button 
-            key={plantId}
-            variant={plantFilters.includes(plantId) ? "default" : "outline"}
+            key={plant.id}
+            variant={plantFilters.includes(plant.id) ? "default" : "outline"}
             size="sm"
-            onClick={() => togglePlantFilter(plantId)}
+            onClick={() => togglePlantFilter(plant.id)}
           >
-            Plant {plantId}
+            {plant.name}
           </Button>
         ))}
       </div>
@@ -316,8 +407,8 @@ const FactoryMetrics = () => {
         
         <TabsContent value="production" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {defectsByFactory.filter(factory => plantFilters.includes(factory.id)).length > 0 ? (
-              defectsByFactory
+            {supabaseDefectsByFactory.filter(factory => plantFilters.includes(factory.id)).length > 0 ? (
+              supabaseDefectsByFactory
                 .filter(factory => plantFilters.includes(factory.id))
                 .map(factory => (
                   <Card key={factory.id} className="shadow-sm">
@@ -335,7 +426,12 @@ const FactoryMetrics = () => {
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-muted-foreground">Top Defect</p>
                           {factory.defects.length > 0 ? (
-                            <p className="text-lg font-semibold">{factory.defects[0].defectType.name}</p>
+                            <p className="text-lg font-semibold">
+                              {factory.defects[0].defect_type?.name || 
+                               (typeof factory.defects[0].defect_type === 'number' ? 
+                                `Type ${factory.defects[0].defect_type}` : 
+                                'Unknown')}
+                            </p>
                           ) : (
                             <p className="text-lg font-semibold">None</p>
                           )}
@@ -343,12 +439,11 @@ const FactoryMetrics = () => {
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-muted-foreground">Lines Affected</p>
                           <p className="text-lg font-semibold">
-                            {new Set(factory.defects.map(d => d.lineNumber)).size}
+                            {new Set(factory.defects.map(d => d.line_number)).size}
                           </p>
                         </div>
                       </div>
                       
-                      {/* Add more production-specific metrics */}
                       <div className="mt-2">
                         <p className="text-sm font-medium text-muted-foreground mb-1">Defect Distribution</p>
                         <div className="h-2 bg-muted overflow-hidden rounded-full">
@@ -366,27 +461,19 @@ const FactoryMetrics = () => {
                   </Card>
                 ))
             ) : (
-              <Card className="col-span-full shadow-sm">
-                <CardHeader>
-                  <CardTitle>No Production Data</CardTitle>
-                  <CardDescription>Record defects to see factory metrics</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center py-6">
-                  <p className="text-muted-foreground">No defects have been recorded yet. Start recording defects to see factory metrics.</p>
-                </CardContent>
-              </Card>
+              <div className="md:col-span-2 lg:col-span-3 text-center p-6 text-muted-foreground">
+                No production data available for the selected plants.
+              </div>
             )}
           </div>
-          
-          <FactoryAnalyticsTable defects={recentDefects.filter(d => plantFilters.includes(d.factoryId))} />
         </TabsContent>
         
         <TabsContent value="quality" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Quality Metrics</CardTitle>
+              <CardTitle>Quality Analytics</CardTitle>
               <CardDescription>
-                Monitor quality performance and defect rates
+                Analyze quality metrics and defect trends
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -422,7 +509,7 @@ const FactoryMetrics = () => {
                   <div className="border rounded-md p-4">
                     <div className="text-sm text-muted-foreground mb-1">Defect Rate</div>
                     <div className="flex justify-between">
-                      <div className="text-2xl font-bold">{(calculateRejectRate() * 100).toFixed(1)}%</div>
+                      <div className="text-2xl font-bold">{(parseFloat(calculateRejectRate()) * 100).toFixed(1)}%</div>
                       <div className="flex items-center text-xs text-red-600">
                         <ArrowDownRight className="mr-1 h-3 w-3" />
                         -3%
@@ -431,37 +518,48 @@ const FactoryMetrics = () => {
                   </div>
                   
                   <div className="border rounded-md p-4">
-                    <div className="text-sm text-muted-foreground mb-1">First-Time Pass</div>
+                    <div className="text-sm text-muted-foreground mb-1">AQL Pass Rate</div>
                     <div className="flex justify-between">
-                      <div className="text-2xl font-bold">{totalDefects > 0 ? (100 - calculateRejectRate() * 100).toFixed(1) : "100.0"}%</div>
+                      <div className="text-2xl font-bold">{calculateAQLPassRate()}%</div>
                       <div className="flex items-center text-xs text-green-600">
                         <ArrowUpRight className="mr-1 h-3 w-3" />
-                        +2%
+                        +5%
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-6">
-                <h3 className="text-lg font-medium mb-4">Top Defects by Plant</h3>
+                
+                <h3 className="text-lg font-medium mt-6 mb-4">Plant Quality Reports</h3>
                 
                 <div className="space-y-4">
-                  {defectsByFactory
+                  {supabaseDefectsByFactory
                     .filter(factory => plantFilters.includes(factory.id))
                     .map(factory => {
                       // Count defects by type for this factory
-                      const typeCounts = {} as Record<string, number>;
-                      factory.defects.forEach(d => {
-                        const typeName = d.defectType.name;
-                        typeCounts[typeName] = (typeCounts[typeName] || 0) + 1;
-                      });
+                      const defectsByType: Record<string, number> = factory.defects.reduce((acc: Record<string, number>, defect) => {
+                        // Get the defect type - which might be a number, a string, or an object
+                        const type = defect.defect_type;
+                        let typeName = 'Unknown';
+                        
+                        if (type) {
+                          if (typeof type === 'object' && type !== null && type.name) {
+                            typeName = type.name;
+                          } else if (typeof type === 'number') {
+                            typeName = `Type ${type}`;
+                          } else {
+                            typeName = String(type);
+                          }
+                        }
+                        
+                        acc[typeName] = (acc[typeName] || 0) + 1;
+                        return acc;
+                      }, {});
                       
-                      // Find top defect type
+                      // Get the top defect type
                       let topType = 'None';
                       let topCount = 0;
                       
-                      Object.entries(typeCounts).forEach(([type, count]) => {
+                      Object.entries(defectsByType).forEach(([type, count]) => {
                         if (count > topCount) {
                           topType = type;
                           topCount = count;
@@ -488,7 +586,7 @@ const FactoryMetrics = () => {
                       );
                     })}
                   
-                  {defectsByFactory.filter(factory => plantFilters.includes(factory.id)).length === 0 && (
+                  {supabaseDefectsByFactory.filter(factory => plantFilters.includes(factory.id)).length === 0 && (
                     <div className="text-center p-4 text-muted-foreground">
                       No quality data available
                     </div>

@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { supabase } from '@/lib/supabase/client';
 
 export interface Plant {
   id: string;
@@ -87,10 +87,38 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         parsedCredentials['admin@jayjay.com'] = 'admin123';
         localStorage.setItem('userCredentials', JSON.stringify(parsedCredentials));
       }
+      
+      // Sync local authentication with Supabase
+      const syncWithSupabase = async () => {
+        // If we have a currentUser but no Supabase session, try to log in
+        if (currentUser) {
+          const { data } = await supabase.auth.getSession();
+          if (!data.session) {
+            console.log('No Supabase session found. Attempting to authenticate with Supabase...');
+            const email = currentUser.email;
+            const password = parsedCredentials[email]; // Get password from stored credentials
+            
+            if (password) {
+              try {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                  console.warn('Failed to authenticate with Supabase:', error);
+                } else {
+                  console.log('Successfully authenticated with Supabase');
+                }
+              } catch (err) {
+                console.error('Error authenticating with Supabase:', err);
+              }
+            }
+          }
+        }
+      };
+      
+      syncWithSupabase();
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [currentUser]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -120,6 +148,33 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         ...userExists,
         plant: userPlant
       };
+      
+      // Sign in with Supabase as well
+      const { error: supabaseError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      // If Supabase login fails, try to create a Supabase account
+      if (supabaseError) {
+        console.warn('Supabase login failed, attempting to create account:', supabaseError);
+        
+        // Try to sign up with Supabase
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: userWithPlant.name,
+              role: userWithPlant.role,
+            }
+          }
+        });
+        
+        if (signUpError) {
+          console.error('Failed to create Supabase account:', signUpError);
+        }
+      }
       
       setCurrentUser(userWithPlant);
       toast.success(`Welcome back, ${userWithPlant.name}!`, {
@@ -194,6 +249,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const logout = () => {
     setCurrentUser(null);
+    // Also sign out from Supabase
+    supabase.auth.signOut().catch(error => {
+      console.error('Error signing out from Supabase:', error);
+    });
     toast.info("You've been logged out", {
       description: "Come back soon!"
     });

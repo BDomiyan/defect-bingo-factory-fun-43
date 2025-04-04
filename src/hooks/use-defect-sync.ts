@@ -3,6 +3,7 @@ import { useLocalStorage } from './use-local-storage';
 import { DefectType, GarmentPart, Operator, RecordedDefect } from '@/lib/types';
 import { toast } from 'sonner';
 import { OPERATIONS } from '@/lib/game-data';
+import { createClient } from '@supabase/supabase-js';
 
 // Define Operation interface
 interface Operation {

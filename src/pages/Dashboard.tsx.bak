@@ -35,7 +35,6 @@ import SupervisorValidation from '@/components/SupervisorValidation';
 import OperatorManagement from '@/components/OperatorManagement';
 // Import Supabase hooks
 import { usePlants, useOperations, useUserManagement, useDefects } from '@/lib/supabase/hooks';
-import { DEFECT_TYPES, GARMENT_PARTS } from '@/lib/game-data';
 
 interface DefectAnalysisData {
   name: string;
@@ -95,10 +94,10 @@ const Dashboard = () => {
   const { defects, loading: loadingDefects, addDefect: addDefectToSupabase } = useDefects();
   
   // Keep the local storage for charts data for now
-  const [lineData, setLineData] = useState(defaultLineData);
-  const [barData, setBarData] = useState(defaultBarData);
-  const [pieData, setPieData] = useState(defaultPieData);
-  const [defectRate, setDefectRate] = useState(0);
+  const [lineData, setLineData] = useLocalStorage('defect-bingo-line-data', defaultLineData);
+  const [barData, setBarData] = useLocalStorage('defect-bingo-bar-data', defaultBarData);
+  const [pieData, setPieData] = useLocalStorage('defect-bingo-pie-data', defaultPieData);
+  const [defectRate, setDefectRate] = useLocalStorage('defect-rate', 0);
   const [recentlyRecordedDefect, setRecentlyRecordedDefect] = useState<any | null>(null);
   
   // Use Supabase data for validation stats
@@ -125,249 +124,205 @@ const Dashboard = () => {
   useEffect(() => {
     if (defects.length === 0) return;
     
-    // Create fresh copies of default data structures to avoid accumulation
-    const newLineData = JSON.parse(JSON.stringify(defaultLineData));
-    const garmentPartCounts: Record<string, number> = {};
-    const defectTypeCounts: Record<string, number> = {};
+    // Reset chart data to defaults first to avoid cumulative counts
+    const newLineData = defaultLineData.map(item => ({ ...item, count: 0 }));
+    const newBarData = defaultBarData.map(item => ({ ...item, count: 0 }));
+    const newPieData = defaultPieData.map(item => ({ ...item, value: 0 }));
     
-    console.log(`Processing ${defects.length} defects for charts`);
-    
-    // Process each defect to collect data
+    // Process each defect to update chart data
     defects.forEach(defect => {
-      // Process daily counts for line chart
-      try {
-        const date = new Date(defect.created_at);
+      // Update line chart data (daily counts)
+      const date = new Date(defect.created_at);
       const day = date.getDay();
       const dayIndex = day === 0 ? 6 : day - 1; // Convert to 0-6 (Mon-Sun)
       newLineData[dayIndex].count += 1;
-      } catch (e) {
-        console.error("Error processing date for defect:", defect.id, e);
-      }
       
-      // Process garment parts for bar chart
-      let garmentPartName = 'Unknown';
+      // Update bar chart data (garment parts)
+      // First, extract the garment part name
+      let garmentPartName = '';
       if (defect.garment_part !== null && defect.garment_part !== undefined) {
         const garmentPart = defect.garment_part as any;
         if (typeof garmentPart === 'object' && garmentPart !== null && 'name' in garmentPart) {
-          garmentPartName = garmentPart.name;
+          garmentPartName = garmentPart.name.toLowerCase();
         } else {
-          garmentPartName = String(garmentPart);
+          garmentPartName = String(garmentPart).toLowerCase();
         }
       }
       
-      // Increment count for this garment part
-      if (!garmentPartCounts[garmentPartName]) {
-        garmentPartCounts[garmentPartName] = 0;
+      // Find matching bar data category or use first category as fallback
+      const partIndex = newBarData.findIndex(item => 
+        item.name.toLowerCase().includes(garmentPartName)
+      );
+      if (partIndex >= 0) {
+        newBarData[partIndex].count += 1;
+      } else {
+        newBarData[0].count += 1;
       }
-      garmentPartCounts[garmentPartName]++;
       
-      // Process defect types for pie chart
-      let defectTypeName = 'Other';
+      // Update pie chart data (defect types)
+      // First, extract the defect type name
+      let defectTypeName = '';
       if (defect.defect_type !== null && defect.defect_type !== undefined) {
         const defectType = defect.defect_type as any;
-        if (typeof defectType === 'object' && defectType !== null) {
-          if (defectType.name) {
-            defectTypeName = defectType.name;
-          } else if (defectType.code) {
-            // Look up the defect type name from DEFECT_TYPES
-            const foundDefectType = DEFECT_TYPES.find(dt => dt.code === Number(defectType.code));
-            defectTypeName = foundDefectType ? foundDefectType.name : 'Other';
-          }
-        } else if (typeof defectType === 'number') {
-          // If defect_type is just a number, look up the name
-          const foundDefectType = DEFECT_TYPES.find(dt => dt.code === defectType);
-          defectTypeName = foundDefectType ? foundDefectType.name : 'Other';
+        if (typeof defectType === 'object' && defectType !== null && 'name' in defectType) {
+          defectTypeName = defectType.name.toLowerCase();
         } else {
-          defectTypeName = String(defectType);
+          defectTypeName = String(defectType).toLowerCase();
         }
       }
       
-      // Increment count for this defect type
-      if (!defectTypeCounts[defectTypeName]) {
-        defectTypeCounts[defectTypeName] = 0;
+      // Find matching pie chart category or use "Other" as fallback
+      const typeIndex = newPieData.findIndex(item => 
+        item.name.toLowerCase().includes(defectTypeName)
+      );
+      if (typeIndex >= 0) {
+        newPieData[typeIndex].value += 1;
+      } else {
+        newPieData[newPieData.length - 1].value += 1; // Add to "Other" category
       }
-      defectTypeCounts[defectTypeName]++;
     });
-    
-    // Log the processed data for debugging
-    console.log("Daily counts:", newLineData);
-    console.log("Garment part counts:", garmentPartCounts);
-    console.log("Defect type counts:", defectTypeCounts);
-    
-    // Generate bar data dynamically from counts (top 5 garment parts)
-    const dynamicBarData = Object.entries(garmentPartCounts)
-      .map(([code, count]) => {
-        const garmentPart = GARMENT_PARTS.find(part => part.code === code);
-        return {
-          name: garmentPart ? garmentPart.name : 'Unknown',
-          count: count
-        };
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5); // Limit to top 5 for readability
-    
-    // Generate pie data dynamically from counts (top 6 defect types)
-    const dynamicPieData = Object.entries(defectTypeCounts)
-      .map(([type, count]) => {
-        // If the type is a number, look up the name from DEFECT_TYPES
-        if (!isNaN(Number(type))) {
-          const defectType = DEFECT_TYPES.find(dt => dt.code === Number(type));
-          return {
-            name: defectType ? defectType.name : 'Other',
-            value: count
-          };
-        }
-        // If it's already a name, use it as is
-        return { name: type, value: count };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6); // Limit to top 6 for readability
-    
-    // If we have less than 5 garment parts, use default ones to fill the gap
-    if (dynamicBarData.length < 5) {
-      const existingNames = new Set(dynamicBarData.map(item => item.name));
-      defaultBarData.forEach(item => {
-        if (!existingNames.has(item.name) && dynamicBarData.length < 5) {
-          dynamicBarData.push({ ...item, count: 0 });
-        }
-      });
-    }
-    
-    // If we have less than 6 defect types, use default ones to fill the gap
-    if (dynamicPieData.length < 6) {
-      const existingNames = new Set(dynamicPieData.map(item => item.name));
-      defaultPieData.forEach(item => {
-        if (!existingNames.has(item.name) && dynamicPieData.length < 6) {
-          dynamicPieData.push({ ...item, value: 0 });
-        }
-      });
-    }
     
     // Update state with processed data
     setLineData(newLineData);
-    setBarData(dynamicBarData);
-    setPieData(dynamicPieData);
+    setBarData(newBarData);
+    setPieData(newPieData);
     
     // Calculate defect rate based on actual data
     if (defects.length > 0) {
-      // Calculate defect rate as a percentage of total defects
-      // This is a more accurate representation of quality status
-      const defectRateValue = (defects.length / 100) * 100; // Convert to percentage
-      setDefectRate(Math.min(100, Math.max(0, defectRateValue))); // Ensure it's between 0-100%
+      const defectCount = defects.length;
+      const defectRateValue = (defectCount / 100) * 5; // Simple calculation for demonstration
+      setDefectRate(Math.min(5, Math.max(1, defectRateValue)));
     }
-  }, [defects]);
+  }, [defects, setLineData, setBarData, setPieData, setDefectRate]);
   
   const getQualityStatus = useCallback(() => {
-    // Updated thresholds for quality status based on defect rate percentage
-    if (defectRate < 5.0) return { 
-      status: 'green', 
-      text: 'Excellent', 
-      icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-      emoji: '😄' // Happy face for excellent quality
-    };
-    if (defectRate < 10.0) return { 
-      status: 'yellow', 
-      text: 'Average', 
-      icon: <AlertTriangle className="h-5 w-5 text-amber-500" />,
-      emoji: '😐' // Neutral face for average quality
-    };
-    return { 
-      status: 'red', 
-      text: 'Critical', 
-      icon: <XCircle className="h-5 w-5 text-red-500" />,
-      emoji: '😡' // Angry face for critical quality issues
-    };
+    if (defectRate < 2.0) return { status: 'green', text: 'Excellent', icon: <CheckCircle className="h-5 w-5 text-green-500" /> };
+    if (defectRate < 3.5) return { status: 'yellow', text: 'Average', icon: <AlertTriangle className="h-5 w-5 text-amber-500" /> };
+    return { status: 'red', text: 'Critical', icon: <XCircle className="h-5 w-5 text-red-500" /> };
   }, [defectRate]);
   
   const qualityStatus = getQualityStatus();
   
-  const handleDefectRecorded = async (defect: any) => {
+  const handleDefectRecorded = (defect: any) => {
     setRecentlyRecordedDefect(defect);
     
-    // The defect has already been added to Supabase by the DefectRecorder component
-    // No need to add it again here
+    const newLineData = [...lineData];
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1; // Convert to 0-6 (Mon-Sun)
+    newLineData[dayIndex].count += 1;
+    setLineData(newLineData);
+    
+    const newBarData = [...barData];
+    const partIndex = newBarData.findIndex(item => 
+      item.name.toLowerCase().includes(defect.garmentPart.name.toLowerCase())
+    );
+    if (partIndex >= 0) {
+      newBarData[partIndex].count += 1;
+    } else {
+      newBarData[0].count += 1;
+    }
+    setBarData(newBarData);
+    
+    const newPieData = [...pieData];
+    const typeIndex = newPieData.findIndex(item => 
+      item.name.toLowerCase().includes(defect.defectType.name.toLowerCase())
+    );
+    if (typeIndex >= 0) {
+      newPieData[typeIndex].value += 1;
+    } else {
+      newPieData[newPieData.length - 1].value += 1; // Add to "Other" category
+    }
+    setPieData(newPieData);
+    
+    const randomFactor = Math.random() * 0.5 + 0.8; // Random factor between 0.8 and 1.3
+    setDefectRate(Math.min(5, Math.max(1, ((defects.length + 1) / 40) * randomFactor)));
+    
     toast.success('Defect recorded successfully!', {
       description: `${defect.garmentPart.name} - ${defect.defectType.name}`,
     });
-    
-    // The useEffect will automatically update all charts when defects state updates
   };
   
   const addDemoData = async () => {
-    try {
-      if (supabaseUsers.length > 0 && plants.length > 0 && operations.length > 0) {
-        toast.info('Adding demo data...', {
-          description: 'Creating 20 sample defects for testing'
-        });
+    const newLineData = lineData.map(item => ({
+      ...item,
+      count: Math.floor(Math.random() * 100)
+    }));
     
-    for (let i = 0; i < 20; i++) {
-          const randomPlant = plants[Math.floor(Math.random() * plants.length)];
-          const randomUser = supabaseUsers[Math.floor(Math.random() * supabaseUsers.length)];
-          const randomOperation = operations[Math.floor(Math.random() * operations.length)];
-          
-      const randomDefectType = {
-        code: Math.floor(Math.random() * 24) + 1,
-        name: `Demo Defect ${i+1}`
-      };
-      const randomGarmentPart = {
-        code: String.fromCharCode(65 + Math.floor(Math.random() * 24)),
-        name: `Demo Part ${i+1}`
-      };
-      
-          // Create a demo defect in the correct format for Supabase
-          const demoDefect = {
-        id: crypto.randomUUID(),
-        defectType: randomDefectType,
-        garmentPart: randomGarmentPart,
-        timestamp: new Date().toISOString(),
-            operatorId: randomUser.id,
-            operatorName: randomUser.name,
-            factoryId: randomPlant.id,
-            lineNumber: randomPlant.lines[Math.floor(Math.random() * randomPlant.lines.length)],
-            epfNumber: randomUser.epf_number,
-            operation: randomOperation.name,
-            status: 'verified' as 'verified' | 'pending' | 'rejected',
-        reworked: Math.random() > 0.7
-          };
-          
-          // Use the addDefectToSupabase function from the useDefects hook
+    const newBarData = barData.map(item => ({
+      ...item,
+      count: Math.floor(Math.random() * 30)
+    }));
+    
+    const newPieData = pieData.map(item => ({
+      ...item,
+      value: Math.floor(Math.random() * 25)
+    }));
+    
+    setLineData(newLineData);
+    setBarData(newBarData);
+    setPieData(newPieData);
+    setDefectRate(Math.random() * 5);
+    
+    // Create demo defects using Supabase data
+    if (supabaseUsers.length > 0 && plants.length > 0 && operations.length > 0) {
+      for (let i = 0; i < 20; i++) {
+        const randomPlant = plants[Math.floor(Math.random() * plants.length)];
+        const randomUser = supabaseUsers[Math.floor(Math.random() * supabaseUsers.length)];
+        const randomOperation = operations[Math.floor(Math.random() * operations.length)];
+        
+        const randomDefectType = {
+          code: Math.floor(Math.random() * 24) + 1,
+          name: `Demo Defect ${i+1}`
+        };
+        const randomGarmentPart = {
+          code: String.fromCharCode(65 + Math.floor(Math.random() * 24)),
+          name: `Demo Part ${i+1}`
+        };
+        
+        // Create a demo defect in the correct format for Supabase
+        const demoDefect = {
+          id: crypto.randomUUID(),
+          defectType: randomDefectType,
+          garmentPart: randomGarmentPart,
+          timestamp: new Date().toISOString(),
+          operatorId: randomUser.id,
+          operatorName: randomUser.name,
+          factoryId: randomPlant.id,
+          lineNumber: randomPlant.lines[Math.floor(Math.random() * randomPlant.lines.length)],
+          epfNumber: randomUser.epf_number,
+          operation: randomOperation.name,
+          status: 'verified' as 'verified' | 'pending' | 'rejected',
+          reworked: Math.random() > 0.7
+        };
+        
+        try {
+          // Use the addDefectToSupabase function from the useDefects hook we declared above
           await addDefectToSupabase(demoDefect);
+        } catch (error) {
+          console.error("Error adding demo defect:", error);
+        }
+      }
+    } else {
+      toast.error("Cannot create demo data", {
+        description: "Make sure you have users, plants, and operations in the database"
+      });
+      return;
     }
     
     toast.success('Demo data loaded', {
       description: 'Dashboard has been populated with sample data'
     });
-      } else {
-        toast.error("Cannot create demo data", {
-          description: "Make sure you have users, plants, and operations in the database"
-        });
-      }
-    } catch (error) {
-      console.error("Error adding demo defects:", error);
-      toast.error("Failed to load demo data", {
-        description: "An error occurred while creating sample defects."
-      });
-    }
   };
   
-  const resetData = async () => {
-    try {
-      // We don't want to actually delete the defects from Supabase
-      // Instead, we'll just reset the chart displays to their defaults
-      setLineData(JSON.parse(JSON.stringify(defaultLineData)));
-      setBarData(JSON.parse(JSON.stringify(defaultBarData)));
-      setPieData(JSON.parse(JSON.stringify(defaultPieData)));
+  const resetData = () => {
+    setLineData(defaultLineData);
+    setBarData(defaultBarData);
+    setPieData(defaultPieData);
     setDefectRate(2.5);
     
     toast.info('Data reset', {
       description: 'All dashboard data has been reset to defaults'
     });
-    } catch (error) {
-      console.error("Error resetting data:", error);
-      toast.error("Failed to reset data", {
-        description: "An error occurred while resetting the dashboard."
-      });
-    }
   };
   
   const renderLeaderboard = () => {
@@ -445,14 +400,19 @@ const Dashboard = () => {
   };
   
   const defectCountsByType = defects.reduce((acc, defect) => {
+    // Create a default type name for unknown defect types
     let typeName = 'Unknown';
     
+    // Check if defect_type exists
     if (defect.defect_type !== null && defect.defect_type !== undefined) {
+      // Use type assertion to handle different formats
       const defectType = defect.defect_type as any;
       
       if (typeof defectType === 'object' && defectType !== null && defectType.name) {
+        // Handle object with name property
         typeName = defectType.name;
       } else {
+        // Handle string or other primitive cases
         typeName = String(defectType);
       }
     }
@@ -467,13 +427,10 @@ const Dashboard = () => {
 
   console.log("Defect Counts by Type:", defectCountsByType);
 
-  const defectAnalysisData: DefectAnalysisData[] = Object.entries(defectCountsByType).map(([type, count]) => {
-    const defectType = DEFECT_TYPES.find(defect => defect.code === Number(type));
-    return {
-      name: defectType ? defectType.name : type,
-      count: count as number,
-    };
-  });
+  const defectAnalysisData: DefectAnalysisData[] = Object.entries(defectCountsByType).map(([type, count]) => ({
+    name: type,
+    count: count as number,
+  }));
 
   console.log("Defect Analysis Data:", defectAnalysisData);
   
@@ -570,13 +527,11 @@ const Dashboard = () => {
                 <CardDescription>Current AQL status</CardDescription>
               </div>
               <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full",
+                "flex h-8 w-8 items-center justify-center rounded-full",
                 qualityStatus.status === 'green' ? "bg-green-100" : 
                 qualityStatus.status === 'yellow' ? "bg-amber-100" : "bg-red-100"
               )}>
-                <span className="text-2xl" role="img" aria-label={qualityStatus.text}>
-                  {qualityStatus.emoji}
-                </span>
+                {qualityStatus.icon}
               </div>
             </CardHeader>
             <CardContent>
@@ -858,39 +813,4 @@ const Dashboard = () => {
                         fill="#8884d8"
                         dataKey="value"
                         labelLine={{ stroke: '#666666', strokeWidth: 1 }}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value, name) => [`${value} defects`, name]}
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #ccc',
-                          borderRadius: '4px',
-                          padding: '8px'
-                        }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="factory-metrics" className="mt-4">
-            <FactoryMetrics plants={plants} />
-          </TabsContent>
-          
-          <TabsContent value="operators" className="mt-4">
-                <OperatorManagement />
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
-  );
-};
-
-export default Dashboard;
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`

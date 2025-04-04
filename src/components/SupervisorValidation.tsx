@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect } from 'react';
-import { useDefectSync } from '@/hooks/use-defect-sync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,19 +8,56 @@ import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, XCircle, AlertTriangle, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistance } from 'date-fns';
-import { FACTORIES } from '@/lib/game-data';
+import { useAuth } from '@/context/auth-context';
+import { useDefects } from '@/lib/supabase/hooks';
+import { supabase } from '@/lib/supabase/client';
 
-const SupervisorValidation = () => {
-  const { recentDefects, updateDefectStatus, getAllowedPlants } = useDefectSync();
+interface SupervisorValidationProps {
+  users?: any[];
+}
+
+const SupervisorValidation: React.FC<SupervisorValidationProps> = ({ users = [] }) => {
+  const { user } = useAuth();
+  const { defects, loading: defectsLoading, validateDefect, fetchDefects } = useDefects();
   const [isValidating, setIsValidating] = useState(false);
   const [selectedDefect, setSelectedDefect] = useState<any>(null);
   const [comment, setComment] = useState('');
   const [filter, setFilter] = useState('pending');
+  const [checkingAuth, setCheckingAuth] = useState(true);
   
-  // Get only pending defects for validation
-  const pendingDefects = recentDefects.filter(d => d.status === 'pending');
-  const verifiedDefects = recentDefects.filter(d => d.status === 'verified');
-  const rejectedDefects = recentDefects.filter(d => d.status === 'rejected');
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      console.log('Current Supabase session:', data.session);
+      setCheckingAuth(false);
+    };
+    
+    checkAuth();
+  }, []);
+  
+  // Log defects data to help debug
+  useEffect(() => {
+    console.log('All defects from Supabase:', defects);
+    
+    // Debug validation fields
+    console.log('Defect validation details:');
+    defects.forEach(d => {
+      console.log(`Defect ${d.id.substring(0, 8)}: validated=${d.validated}, validated_by=${d.validated_by || 'null'}`);
+    });
+  }, [defects]);
+  
+  // Get defects based on validation status
+  const pendingDefects = defects.filter(d => !d.validated && !d.validated_by);
+  const verifiedDefects = defects.filter(d => d.validated && d.validated_by);
+  const rejectedDefects = defects.filter(d => !d.validated && d.validated_by);
+  
+  // Log filtered defects to help debug
+  useEffect(() => {
+    console.log('Pending defects:', pendingDefects);
+    console.log('Verified defects:', verifiedDefects);
+    console.log('Rejected defects:', rejectedDefects);
+  }, [pendingDefects, verifiedDefects, rejectedDefects]);
   
   // Get the defects based on filter
   const getFilteredDefects = () => {
@@ -34,33 +69,43 @@ const SupervisorValidation = () => {
       case 'rejected':
         return rejectedDefects;
       default:
-        return recentDefects;
+        return defects;
     }
   };
   
   const filteredDefects = getFilteredDefects();
   
   // Handle verify defect
-  const handleVerifyDefect = () => {
+  const handleVerifyDefect = async () => {
     if (!selectedDefect) return;
     
     setIsValidating(true);
     
-    setTimeout(() => {
-      updateDefectStatus(selectedDefect.id, 'verified', comment || undefined);
+    try {
+      const result = await validateDefect(selectedDefect.id, true, comment || undefined);
       
-      toast.success("Defect verified", {
-        description: `${selectedDefect.garmentPart.name} - ${selectedDefect.defectType.name} by ${selectedDefect.operatorName}`,
+      if (result) {
+        toast.success("Defect verified successfully", {
+          description: `${selectedDefect.garment_part} - ${selectedDefect.defect_type}`,
+        });
+        
+        // Close dialog and reset state
+        setSelectedDefect(null);
+        setComment('');
+      }
+    } catch (error: any) {
+      console.error("Error verifying defect:", error);
+      
+      toast.error("Failed to verify defect", {
+        description: error.message || "An unexpected error occurred"
       });
-      
+    } finally {
       setIsValidating(false);
-      setSelectedDefect(null);
-      setComment('');
-    }, 500);
+    }
   };
   
   // Handle reject defect
-  const handleRejectDefect = () => {
+  const handleRejectDefect = async () => {
     if (!selectedDefect) return;
     
     if (!comment) {
@@ -72,23 +117,37 @@ const SupervisorValidation = () => {
     
     setIsValidating(true);
     
-    setTimeout(() => {
-      updateDefectStatus(selectedDefect.id, 'rejected', comment);
+    try {
+      const result = await validateDefect(selectedDefect.id, false, comment);
       
-      toast.info("Defect rejected", {
-        description: `${selectedDefect.garmentPart.name} - ${selectedDefect.defectType.name} by ${selectedDefect.operatorName}`,
+      if (result) {
+        toast.info("Defect rejected successfully", {
+          description: `${selectedDefect.garment_part} - ${selectedDefect.defect_type}`,
+        });
+        
+        // Close dialog and reset state
+        setSelectedDefect(null);
+        setComment('');
+      }
+    } catch (error: any) {
+      console.error("Error rejecting defect:", error);
+      
+      toast.error("Failed to reject defect", {
+        description: error.message || "An unexpected error occurred"
       });
-      
+    } finally {
       setIsValidating(false);
-      setSelectedDefect(null);
-      setComment('');
-    }, 500);
+    }
   };
   
   // Get factory name by ID
   const getFactoryName = (factoryId: string) => {
-    const factory = FACTORIES.find(f => f.id === factoryId);
-    return factory ? factory.name : factoryId;
+    // First check if it's in the users prop
+    const userPlant = users.find(u => u.plant_id === factoryId);
+    if (userPlant) return userPlant.name;
+    
+    // Return a generic name if not found
+    return `Factory ${factoryId.substring(0, 8)}`;
   };
   
   return (
@@ -132,7 +191,12 @@ const SupervisorValidation = () => {
       
       <CardContent>
         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-          {filteredDefects.length > 0 ? (
+          {defectsLoading ? (
+            <div className="text-center p-8 flex flex-col items-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+              <p>Loading defects...</p>
+            </div>
+          ) : filteredDefects.length > 0 ? (
             filteredDefects.map(defect => (
               <div 
                 key={defect.id} 
@@ -141,26 +205,26 @@ const SupervisorValidation = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      {defect.status === 'verified' ? (
+                      {defect.validated ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : defect.status === 'rejected' ? (
+                      ) : defect.validated_by ? (
                         <XCircle className="h-5 w-5 text-red-500" />
                       ) : (
                         <Clock className="h-5 w-5 text-amber-500" />
                       )}
                       <h4 className="font-medium">
-                        {defect.garmentPart.name} - {defect.defectType.name}
+                        {defect.garment_part} - {defect.defect_type}
                       </h4>
                     </div>
                     <div className="text-sm text-muted-foreground mb-2">
-                      Recorded by <span className="font-medium">{defect.operatorName}</span> • EPF: {defect.epfNumber || 'N/A'}
+                      Recorded by <span className="font-medium">{defect.created_by}</span> • EPF: {defect.epf_number || 'N/A'}
                     </div>
                     <div className="flex gap-2 text-xs">
                       <Badge variant="outline">
-                        {getFactoryName(defect.factoryId)}
+                        {getFactoryName(defect.factory_id)}
                       </Badge>
                       <Badge variant="outline">
-                        Line {defect.lineNumber}
+                        Line {defect.line_number}
                       </Badge>
                       {defect.operation && (
                         <Badge variant="outline">
@@ -171,20 +235,25 @@ const SupervisorValidation = () => {
                   </div>
                   
                   <div className="text-sm text-muted-foreground">
-                    {formatDistance(new Date(defect.timestamp), new Date(), { addSuffix: true })}
+                    {formatDistance(new Date(defect.created_at), new Date(), { addSuffix: true })}
                   </div>
                 </div>
                 
-                {defect.supervisorComment && (
+                {defect.supervisor_comment && (
                   <div className="mt-3 text-sm p-2 bg-muted/50 rounded border">
                     <p className="font-medium">Supervisor Comment:</p>
-                    <p className="text-muted-foreground">{defect.supervisorComment}</p>
+                    <p className="text-muted-foreground">{defect.supervisor_comment}</p>
                   </div>
                 )}
                 
-                {defect.status === 'pending' && (
+                {!defect.validated && !defect.validated_by && (
                   <div className="mt-3 flex gap-2 justify-end">
-                    <Dialog>
+                    <Dialog 
+                      open={selectedDefect?.id === defect.id} 
+                      onOpenChange={(open) => {
+                        if (!open) setSelectedDefect(null);
+                      }}
+                    >
                       <DialogTrigger asChild>
                         <Button 
                           variant="outline" 
@@ -194,71 +263,70 @@ const SupervisorValidation = () => {
                           Validate
                         </Button>
                       </DialogTrigger>
+                      
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>Validate Defect</DialogTitle>
                           <DialogDescription>
-                            Review the defect details and provide feedback.
+                            Review the defect information and provide feedback
                           </DialogDescription>
                         </DialogHeader>
                         
-                        <div className="py-4">
-                          <div className="space-y-4">
-                            <div>
+                        <div className="space-y-4 py-4">
+                          <div className="bg-muted/40 p-4 rounded-md space-y-4">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-5 w-5 text-amber-500" />
                               <h3 className="font-medium">Defect Details</h3>
-                              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                                <div>
-                                  <span className="text-muted-foreground">Garment Part:</span>
-                                  <div>{selectedDefect?.garmentPart.name}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Defect Type:</span>
-                                  <div>{selectedDefect?.defectType.name}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Operator:</span>
-                                  <div>{selectedDefect?.operatorName}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">EPF Number:</span>
-                                  <div>{selectedDefect?.epfNumber || 'N/A'}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Factory:</span>
-                                  <div>{getFactoryName(selectedDefect?.factoryId)}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Line:</span>
-                                  <div>Line {selectedDefect?.lineNumber}</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Time:</span>
-                                  <div>
-                                    {selectedDefect && format(new Date(selectedDefect.timestamp), 'MM/dd/yyyy h:mm a')}
-                                  </div>
-                                </div>
-                                {selectedDefect?.operation && (
-                                  <div>
-                                    <span className="text-muted-foreground">Operation:</span>
-                                    <div>{selectedDefect.operation}</div>
-                                  </div>
-                                )}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Garment Part:</span>
+                                <div>{selectedDefect?.garment_part}</div>
                               </div>
+                              <div>
+                                <span className="text-muted-foreground">Defect Type:</span>
+                                <div>{selectedDefect?.defect_type}</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Operator:</span>
+                                <div>{selectedDefect?.created_by}</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Factory:</span>
+                                <div>{selectedDefect?.factory_id && getFactoryName(selectedDefect.factory_id)}</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Line:</span>
+                                <div>Line {selectedDefect?.line_number}</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Time:</span>
+                                <div>
+                                  {selectedDefect && format(new Date(selectedDefect.created_at), 'MM/dd/yyyy h:mm a')}
+                                </div>
+                              </div>
+                              {selectedDefect?.operation && (
+                                <div>
+                                  <span className="text-muted-foreground">Operation:</span>
+                                  <div>{selectedDefect.operation}</div>
+                                </div>
+                              )}
                             </div>
-                            
-                            <Separator />
-                            
-                            <div>
-                              <label htmlFor="comment" className="block font-medium mb-2">
-                                Supervisor Comment
-                              </label>
-                              <Textarea 
-                                id="comment" 
-                                placeholder="Add a comment (required for rejection)"
-                                value={comment}
-                                onChange={e => setComment(e.target.value)}
-                              />
-                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div>
+                            <label htmlFor="comment" className="block font-medium mb-2">
+                              Supervisor Comment
+                            </label>
+                            <Textarea 
+                              id="comment" 
+                              placeholder="Add a comment (required for rejection)"
+                              value={comment}
+                              onChange={e => setComment(e.target.value)}
+                            />
                           </div>
                         </div>
                         
@@ -324,6 +392,9 @@ const SupervisorValidation = () => {
                   : filter === 'rejected'
                   ? "No rejected defects found."
                   : "No defects have been recorded yet."}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total defects in database: {defects.length}
               </p>
               {filter !== 'pending' && pendingDefects.length > 0 && (
                 <Button 

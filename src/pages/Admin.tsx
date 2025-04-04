@@ -33,31 +33,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useNavigate } from 'react-router-dom';
 import { UserProfile } from '@/context/auth-context';
 import { Plus, Trash, Edit, Factory, Users, User, Settings, CheckCircle, XCircle } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useOperations, usePlants, useUserManagement } from '@/lib/supabase/hooks';
 import { Operation } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 const Admin = () => {
-  const { 
-    user, 
-    isAdmin, 
-    getAllUsers, 
-    deleteUser, 
-    updateUser, 
-    addUser,
-    getAllPlants,
-    addPlant,
-    updatePlant,
-    deletePlant
-  } = useAuth();
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [plants, setPlants] = useState<any[]>([]);
-  const [operations, setOperations] = useLocalStorage<Operation[]>('operations', [
-    { id: '1', name: 'Cutting' },
-    { id: '2', name: 'Sewing' },
-    { id: '3', name: 'Finishing' }
-  ]);
+  const { user, isAdmin } = useAuth();
+  const { users, loading: usersLoading, addUser, updateUser, deleteUser } = useUserManagement();
+  const { plants, loading: plantsLoading, addPlant, updatePlant, deletePlant } = usePlants();
+  const { operations, loading: operationsLoading, addOperation, updateOperation, deleteOperation } = useOperations();
   const navigate = useNavigate();
 
   // New user form state
@@ -65,10 +50,11 @@ const Admin = () => {
     name: '',
     email: '',
     password: '',
-    employeeId: '',
-    plantId: '',
-    lineNumber: '',
-    role: 'user'
+    employee_id: '',
+    plant_id: '',
+    line_number: '',
+    role: 'user',
+    epf_number: ''
   });
 
   // New plant form state
@@ -81,37 +67,59 @@ const Admin = () => {
   const [newOperation, setNewOperation] = useState('');
   const [editingOperation, setEditingOperation] = useState<Operation | null>(null);
 
-  // Load data on component mount
+  // Add this state near the top where other state variables are defined
+  const [editingPlant, setEditingPlant] = useState<{ id: string; name: string; lines: string } | null>(null);
+
+  // Add this state near the top where other state variables are defined
+  const [editingUser, setEditingUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    employee_id: string;
+    plant_id: string;
+    line_number: string;
+    role: string;
+    epf_number: string;
+  } | null>(null);
+
+  // Redirect if not admin
   useEffect(() => {
-    if (isAdmin) {
-      setUsers(getAllUsers());
-      setPlants(getAllPlants());
-    } else {
+    if (!isAdmin) {
       navigate('/dashboard');
       toast.error("Access denied", { description: "You need admin privileges to access this page" });
     }
-  }, [isAdmin, getAllUsers, getAllPlants, navigate]);
+  }, [isAdmin, navigate]);
 
   // Handle new user form submission
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     try {
-      addUser({
-        ...newUser,
+      if (!newUser.name || !newUser.email || !newUser.epf_number) {
+        toast.error("Please fill all required fields");
+        return;
+      }
+
+      await addUser({
+        name: newUser.name,
+        email: newUser.email,
         password: newUser.password || 'password123',
-        role: newUser.role as "user" | "admin" | "manager" | "qc"
+        role: newUser.role as "user" | "admin" | "manager" | "qc",
+        employee_id: newUser.employee_id,
+        plant_id: newUser.plant_id,
+        line_number: newUser.line_number,
+        epf_number: newUser.epf_number
       });
       
       setNewUser({
         name: '',
         email: '',
         password: '',
-        employeeId: '',
-        plantId: '',
-        lineNumber: '',
-        role: 'user'
+        employee_id: '',
+        plant_id: '',
+        line_number: '',
+        role: 'user',
+        epf_number: ''
       });
       
-      setUsers(getAllUsers());
       toast.success("User added successfully");
     } catch (error) {
       toast.error("Failed to add user", { 
@@ -121,7 +129,7 @@ const Admin = () => {
   };
 
   // Handle new plant form submission
-  const handleAddPlant = () => {
+  const handleAddPlant = async () => {
     try {
       if (!newPlant.name) {
         toast.error("Please enter a plant name");
@@ -132,7 +140,7 @@ const Admin = () => {
         ? newPlant.lines.split(',').map(line => line.trim()) 
         : ['L1'];
       
-      addPlant({
+      await addPlant({
         name: newPlant.name,
         lines
       });
@@ -142,7 +150,6 @@ const Admin = () => {
         lines: ''
       });
       
-      setPlants(getAllPlants());
       toast.success("Plant added successfully");
     } catch (error) {
       toast.error("Failed to add plant", { 
@@ -152,10 +159,9 @@ const Admin = () => {
   };
 
   // Handle user deletion
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     try {
-      deleteUser(userId);
-      setUsers(getAllUsers());
+      await deleteUser(userId);
       toast.success("User deleted successfully");
     } catch (error) {
       toast.error("Failed to delete user", { 
@@ -165,10 +171,9 @@ const Admin = () => {
   };
 
   // Handle plant deletion
-  const handleDeletePlant = (plantId: string) => {
+  const handleDeletePlant = async (plantId: string) => {
     try {
-      deletePlant(plantId);
-      setPlants(getAllPlants());
+      await deletePlant(plantId);
       toast.success("Plant deleted successfully");
     } catch (error) {
       toast.error("Failed to delete plant", { 
@@ -178,7 +183,7 @@ const Admin = () => {
   };
 
   // Handle adding a new operation
-  const handleAddOperation = () => {
+  const handleAddOperation = async () => {
     if (!newOperation.trim()) {
       toast.error("Operation name cannot be empty");
       return;
@@ -190,18 +195,19 @@ const Admin = () => {
       return;
     }
 
-    const newOp: Operation = {
-      id: crypto.randomUUID(),
-      name: newOperation.trim()
-    };
-
-    setOperations([...operations, newOp]);
+    try {
+      await addOperation(newOperation.trim());
     setNewOperation('');
     toast.success("Operation added successfully");
+    } catch (error) {
+      toast.error("Failed to add operation", { 
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
   };
 
   // Handle updating an operation
-  const handleUpdateOperation = () => {
+  const handleUpdateOperation = async () => {
     if (!editingOperation || !editingOperation.name.trim()) {
       toast.error("Operation name cannot be empty");
       return;
@@ -216,20 +222,80 @@ const Admin = () => {
       return;
     }
 
-    const updatedOperations = operations.map(op => 
-      op.id === editingOperation.id ? editingOperation : op
-    );
-    
-    setOperations(updatedOperations);
+    try {
+      await updateOperation(editingOperation.id, editingOperation.name);
     setEditingOperation(null);
     toast.success("Operation updated successfully");
+    } catch (error) {
+      toast.error("Failed to update operation", { 
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
   };
 
   // Handle deleting an operation
-  const handleDeleteOperation = (id: string) => {
-    const updatedOperations = operations.filter(op => op.id !== id);
-    setOperations(updatedOperations);
+  const handleDeleteOperation = async (id: string) => {
+    try {
+      await deleteOperation(id);
     toast.success("Operation deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete operation", { 
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
+  };
+
+  // Add this function with the other handlers
+  const handleUpdatePlant = async () => {
+    if (!editingPlant) return;
+    
+    try {
+      const lines = editingPlant.lines
+        ? editingPlant.lines.split(',').map(line => line.trim())
+        : ['L1'];
+        
+      await updatePlant(editingPlant.id, {
+        name: editingPlant.name,
+        lines
+      });
+      
+      setEditingPlant(null);
+      toast.success("Plant updated successfully");
+    } catch (error) {
+      toast.error("Failed to update plant", { 
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
+  };
+
+  // Add this function with the other handlers
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    
+    try {
+      if (!editingUser.name || !editingUser.email || !editingUser.epf_number) {
+        toast.error("Please fill all required fields");
+        return;
+      }
+
+      await updateUser(editingUser.id, {
+        name: editingUser.name,
+        email: editingUser.email,
+        role: editingUser.role as "user" | "admin" | "manager" | "qc",
+        employee_id: editingUser.employee_id,
+        plant_id: editingUser.plant_id,
+        line_number: editingUser.line_number,
+        epf_number: editingUser.epf_number
+      });
+      
+      // Close the dialog after successful update
+      setEditingUser(null);
+      toast.success("User updated successfully");
+    } catch (error) {
+      toast.error("Failed to update user", { 
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
   };
 
   // Check if user is admin
@@ -309,11 +375,20 @@ const Admin = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="epfNumber">EPF Number</Label>
+                    <Input 
+                      id="epfNumber" 
+                      value={newUser.epf_number} 
+                      onChange={(e) => setNewUser({...newUser, epf_number: e.target.value})}
+                      placeholder="EPF001" 
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="employeeId">Employee ID</Label>
                     <Input 
                       id="employeeId" 
-                      value={newUser.employeeId} 
-                      onChange={(e) => setNewUser({...newUser, employeeId: e.target.value})}
+                      value={newUser.employee_id} 
+                      onChange={(e) => setNewUser({...newUser, employee_id: e.target.value})}
                       placeholder="EMP001" 
                     />
                   </div>
@@ -337,8 +412,8 @@ const Admin = () => {
                   <div className="space-y-2">
                     <Label htmlFor="plantId">Plant</Label>
                     <Select 
-                      value={newUser.plantId} 
-                      onValueChange={(value) => setNewUser({...newUser, plantId: value})}
+                      value={newUser.plant_id} 
+                      onValueChange={(value) => setNewUser({...newUser, plant_id: value})}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select plant" />
@@ -356,10 +431,10 @@ const Admin = () => {
                     <Label htmlFor="lineNumber">Line Number</Label>
                     <Input 
                       id="lineNumber" 
-                      value={newUser.lineNumber} 
-                      onChange={(e) => setNewUser({...newUser, lineNumber: e.target.value})}
+                      value={newUser.line_number} 
+                      onChange={(e) => setNewUser({...newUser, line_number: e.target.value})}
                       placeholder="L1" 
-                      disabled={!newUser.plantId}
+                      disabled={!newUser.plant_id}
                     />
                   </div>
                 </div>
@@ -367,7 +442,7 @@ const Admin = () => {
               <CardFooter>
                 <Button 
                   onClick={handleAddUser}
-                  disabled={!newUser.name || !newUser.email || !newUser.plantId}
+                  disabled={!newUser.name || !newUser.email || !newUser.epf_number}
                   className="w-full md:w-auto"
                 >
                   <Plus className="mr-2 h-4 w-4" /> 
@@ -388,6 +463,7 @@ const Admin = () => {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>EPF Number</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Plant</TableHead>
                         <TableHead>Line</TableHead>
@@ -395,9 +471,15 @@ const Admin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.length === 0 ? (
+                      {usersLoading ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-4">
+                            Loading users...
+                          </TableCell>
+                        </TableRow>
+                      ) : users.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                             No users found
                           </TableCell>
                         </TableRow>
@@ -406,6 +488,7 @@ const Admin = () => {
                           <TableRow key={user.id}>
                             <TableCell className="font-medium">{user.name}</TableCell>
                             <TableCell>{user.email}</TableCell>
+                            <TableCell>{user.epf_number}</TableCell>
                             <TableCell>
                               <span className={cn(
                                 "px-2 py-1 rounded-full text-xs font-medium",
@@ -417,12 +500,29 @@ const Admin = () => {
                                 {user.role}
                               </span>
                             </TableCell>
-                            <TableCell>{user.plantId}</TableCell>
-                            <TableCell>{user.lineNumber}</TableCell>
+                            <TableCell>
+                              {plants.find(plant => plant.id === user.plant_id)?.name || 'N/A'}
+                            </TableCell>
+                            <TableCell>{user.line_number}</TableCell>
                             <TableCell className="text-right">
                               <Dialog>
                                 <DialogTrigger asChild>
-                                  <Button variant="ghost" size="icon">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => {
+                                      setEditingUser({
+                                        id: user.id,
+                                        name: user.name,
+                                        email: user.email,
+                                        employee_id: user.employee_id || '',
+                                        plant_id: user.plant_id || '',
+                                        line_number: user.line_number || '',
+                                        role: user.role,
+                                        epf_number: user.epf_number || ''
+                                      });
+                                    }}
+                                  >
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </DialogTrigger>
@@ -432,10 +532,112 @@ const Admin = () => {
                                     <DialogDescription>Update user details</DialogDescription>
                                   </DialogHeader>
                                   <div className="grid gap-4 py-4">
-                                    {/* Edit user form would go here */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-name">Full Name</Label>
+                                        <Input
+                                          id="edit-user-name"
+                                          value={editingUser?.name || ''}
+                                          onChange={(e) => setEditingUser(prev => 
+                                            prev ? {...prev, name: e.target.value} : null
+                                          )}
+                                          placeholder="John Doe"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-email">Email</Label>
+                                        <Input
+                                          id="edit-user-email"
+                                          type="email"
+                                          value={editingUser?.email || ''}
+                                          onChange={(e) => setEditingUser(prev => 
+                                            prev ? {...prev, email: e.target.value} : null
+                                          )}
+                                          placeholder="john@example.com"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-epf">EPF Number</Label>
+                                        <Input
+                                          id="edit-user-epf"
+                                          value={editingUser?.epf_number || ''}
+                                          onChange={(e) => setEditingUser(prev => 
+                                            prev ? {...prev, epf_number: e.target.value} : null
+                                          )}
+                                          placeholder="EPF001"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-employee-id">Employee ID</Label>
+                                        <Input
+                                          id="edit-user-employee-id"
+                                          value={editingUser?.employee_id || ''}
+                                          onChange={(e) => setEditingUser(prev => 
+                                            prev ? {...prev, employee_id: e.target.value} : null
+                                          )}
+                                          placeholder="EMP001"
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-role">Role</Label>
+                                        <Select 
+                                          value={editingUser?.role || ''}
+                                          onValueChange={(value) => setEditingUser(prev => 
+                                            prev ? {...prev, role: value} : null
+                                          )}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select role" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="user">User</SelectItem>
+                                            <SelectItem value="admin">Admin</SelectItem>
+                                            <SelectItem value="manager">Manager</SelectItem>
+                                            <SelectItem value="qc">Quality Control</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-plant">Plant</Label>
+                                        <Select 
+                                          value={editingUser?.plant_id || ''}
+                                          onValueChange={(value) => setEditingUser(prev => 
+                                            prev ? {...prev, plant_id: value} : null
+                                          )}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select plant" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {plants.map((plant) => (
+                                              <SelectItem key={plant.id} value={plant.id}>
+                                                {plant.name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="edit-user-line">Line Number</Label>
+                                        <Input
+                                          id="edit-user-line"
+                                          value={editingUser?.line_number || ''}
+                                          onChange={(e) => setEditingUser(prev => 
+                                            prev ? {...prev, line_number: e.target.value} : null
+                                          )}
+                                          placeholder="L1"
+                                          disabled={!editingUser?.plant_id}
+                                        />
+                                      </div>
+                                    </div>
                                   </div>
                                   <DialogFooter>
-                                    <Button>Save Changes</Button>
+                                    <Button 
+                                      onClick={handleUpdateUser}
+                                      disabled={!editingUser?.name || !editingUser?.email || !editingUser?.epf_number}
+                                    >
+                                      Save Changes
+                                    </Button>
                                   </DialogFooter>
                                 </DialogContent>
                               </Dialog>
@@ -444,7 +646,6 @@ const Admin = () => {
                                 size="icon" 
                                 className="text-red-500"
                                 onClick={() => handleDeleteUser(user.id)}
-                                disabled={user.id === '1'}
                               >
                                 <Trash className="h-4 w-4" />
                               </Button>
@@ -516,7 +717,13 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {plants.length === 0 ? (
+                    {plantsLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-4">
+                          Loading plants...
+                        </TableCell>
+                      </TableRow>
+                    ) : plants.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
                           No plants found
@@ -542,7 +749,15 @@ const Admin = () => {
                           <TableCell className="text-right">
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => setEditingPlant({
+                                    id: plant.id,
+                                    name: plant.name,
+                                    lines: plant.lines.join(', ')
+                                  })}
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </DialogTrigger>
@@ -552,10 +767,36 @@ const Admin = () => {
                                   <DialogDescription>Update plant details</DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
-                                  {/* Edit plant form would go here */}
+                                  <div className="space-y-2">
+                                    <Label htmlFor="edit-plant-name">Plant Name</Label>
+                                    <Input
+                                      id="edit-plant-name"
+                                      value={editingPlant?.name || ''}
+                                      onChange={(e) => setEditingPlant(prev => 
+                                        prev ? {...prev, name: e.target.value} : null
+                                      )}
+                                      placeholder="Main Factory"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="edit-plant-lines">Production Lines (comma separated)</Label>
+                                    <Input
+                                      id="edit-plant-lines"
+                                      value={editingPlant?.lines || ''}
+                                      onChange={(e) => setEditingPlant(prev => 
+                                        prev ? {...prev, lines: e.target.value} : null
+                                      )}
+                                      placeholder="L1, L2, L3"
+                                    />
+                                  </div>
                                 </div>
                                 <DialogFooter>
-                                  <Button>Save Changes</Button>
+                                  <Button 
+                                    onClick={handleUpdatePlant}
+                                    disabled={!editingPlant?.name}
+                                  >
+                                    Save Changes
+                                  </Button>
                                 </DialogFooter>
                               </DialogContent>
                             </Dialog>
@@ -564,7 +805,6 @@ const Admin = () => {
                               size="icon" 
                               className="text-red-500"
                               onClick={() => handleDeletePlant(plant.id)}
-                              disabled={plant.id === 'A6'} // Prevent deleting default plant
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
@@ -618,7 +858,13 @@ const Admin = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {operations.length === 0 ? (
+                        {operationsLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={2} className="text-center py-4">
+                              Loading operations...
+                            </TableCell>
+                          </TableRow>
+                        ) : operations.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={2} className="text-center py-4 text-muted-foreground">
                               No operations defined yet
