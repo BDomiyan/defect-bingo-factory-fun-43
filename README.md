@@ -14,64 +14,51 @@ A gamified quality management application that improves garment defect detection
 - **Operator Management**: Admin can add, edit, and remove operators with their EPF numbers and details
 
 ## Getting Started
+# Setup Instructions for Local Development
 
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Start the development server: `npm run dev`
-4. Visit `http://localhost:5173` in your browser
+## Prerequisites
+- Node.js (v14 or later)
+- npm (Node Package Manager)
+- Git
 
-## How to Play
+## Clone the Repository
+```bash
+git clone <repository-url>
+cd <repository-directory>
+```
 
-1. QC operators can record defects when found on the production floor
-2. Each defect consists of a Garment Part + Defect Type combination
-3. Operators provide their name, EPF number, and select their operation
-4. Supervisors validate recorded defects to ensure accuracy
-5. When a row, column, or diagonal is completed, a bingo is achieved
-6. Points are awarded for validated defects and completed bingo lines
+## Install Dependencies
+```bash
+npm install
+```
 
-## Game Features
+## Setup Supabase
 
-- **Combo Points**: Earn extra points for finding multiple defects in a short time
-- **Streaks**: Maintain a streak of valid defects for multipliers
-- **Penalties**: Invalid defects can result in penalties
-- **Challenges**: Daily and weekly challenges for bonus points
-- **Awards**: Special recognition for top performers
-- **Supervisor Validation**: All defects are pending until validated by supervisors
-- **EPF Number Tracking**: Operators are identified by unique EPF numbers
-- **Operation Selection**: Defects are linked to specific operations in the production process
+### Option 1: Use Existing Supabase Database
+1. Ensure you have the Supabase URL and API key.
+2. Create a `.env` file in the root of the project and add the following:
+   ```env
+   SUPABASE_URL=<your-supabase-url>
+   SUPABASE_ANON_KEY=<your-supabase-anon-key>
+   ```
 
-## Operator Management
+### Option 2: Connect to Your Own Supabase Database
+1. Go to [Supabase](https://supabase.io/) and create a new project.
+2. Set up your database schema according to the project requirements.
+3. Obtain your Supabase URL and API key from the project settings.
+4. Create a `.env` file in the root of the project and add the following:
+   ```env
+   SUPABASE_URL=<your-supabase-url>
+   SUPABASE_ANON_KEY=<your-supabase-anon-key>
+   ```
 
-- **Add Operators**: Admins can add new operators with their EPF numbers
-- **Edit Details**: Update operator information including name, EPF, factory, and line
-- **Factory Assignment**: Assign operators to specific factories and production lines
-- **Search**: Quickly find operators by name, EPF, factory, or line
-- **Line Configuration**: Organize operators by production line for easy management
+## Run the Application
+```bash
+npm run dev
+```
 
-## Technical Information
+## Access the Application
+Open your browser and go to `http://localhost:8080` (or the port specified in the terminal).
 
-- Built with React, TypeScript, and Vite
-- Styled with Tailwind CSS and shadcn/ui components
-- Real-time metrics and analytics
-- Mobile and tablet-responsive design
-
-## Factories
-
-The application is configured for use in all 13 factories:
-- A6: Plant A6
-- C5: Plant C5
-- M1: Plant M1
-- B7: Plant B7
-- D2: Plant D2
-- E4: Plant E4
-- F8: Plant F8
-- G3: Plant G3
-- H9: Plant H9
-- J5: Plant J5
-- K1: Plant K1
-- L6: Plant L6
-- N2: Plant N2
-
-## License
-
-© 2023 Jay Jay Quality. All rights reserved.
+## Additional Notes
+- Ensure your database tables and structure match the expected schema for the application to function correctly.
