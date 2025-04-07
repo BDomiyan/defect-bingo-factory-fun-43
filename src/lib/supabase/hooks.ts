@@ -949,4 +949,282 @@ export function useLeaderboard() {
     fetchLineStats,
     updateAwards
   };
+}
+
+export function useBingoDefects() {
+  const [loading, setLoading] = useState(false);
+  const [bingoDefects, setBingoDefects] = useState<any[]>([]);
+  
+  // Function to ensure a default bingo card exists
+  const ensureDefaultBingoCard = useCallback(async () => {
+    try {
+      // Check if default bingo card exists
+      const { data: existingCard, error: checkError } = await supabase
+        .from('bingo_cards')
+        .select('id')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking for default bingo card:', checkError);
+        return null;
+      }
+      
+      // If default card doesn't exist, create it
+      if (!existingCard) {
+        const { data, error } = await supabase
+          .from('bingo_cards')
+          .insert([{
+            id: '00000000-0000-0000-0000-000000000001',
+            user_id: '00000000-0000-0000-0000-000000000001',
+            completed: false,
+            score: 0
+          }])
+          .select();
+          
+        if (error) {
+          console.error('Error creating default bingo card:', error);
+          return null;
+        }
+        
+        console.log('Created default bingo card:', data);
+        return data[0];
+      }
+      
+      return existingCard;
+    } catch (error) {
+      console.error('Error in ensureDefaultBingoCard:', error);
+      return null;
+    }
+  }, []);
+  
+  const fetchBingoDefects = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fix the relationship query by being more specific about the join
+      const { data, error } = await supabase
+        .from('bingo_defects')
+        .select(`
+          *,
+          created_by_user:users!bingo_defects_created_by_fkey(name, epf_number),
+          validated_by_user:users!bingo_defects_validated_by_fkey(name, epf_number),
+          bingo_cards(*)
+        `)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching bingo defects:', error);
+        throw error;
+      }
+      
+      setBingoDefects(data || []);
+    } catch (error) {
+      console.error('Error in fetchBingoDefects:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  useEffect(() => {
+    // Ensure default bingo card exists when component mounts
+    ensureDefaultBingoCard();
+    fetchBingoDefects();
+  }, [fetchBingoDefects, ensureDefaultBingoCard]);
+  
+  const addBingoDefect = useCallback(async (defect: any) => {
+    setLoading(true);
+    try {
+      // Ensure default bingo card exists
+      await ensureDefaultBingoCard();
+      
+      // Include all necessary fields from the defect
+      const defectData: {
+        garment_part: any;
+        defect_type: string;
+        bingo_card_id?: string; // Make this property optional
+        is_bingo_line: boolean;
+        bingo_line_type?: string;
+        bingo_line_index?: number;
+        cell_position?: string;
+        validated: boolean;
+        created_by: any;
+        factory_id: any;
+        line_number: any;
+        epf_number?: any;
+        operation?: any;
+        status: string;
+        reworked: boolean;
+        points_awarded: number;
+      } = {
+        garment_part: typeof defect.garmentPart === 'object' ? defect.garmentPart.code : defect.garmentPart,
+        defect_type: typeof defect.defectType === 'object' ? String(defect.defectType.code) : String(defect.defectType),
+        is_bingo_line: defect.isBingoLine || false,
+        bingo_line_type: defect.bingoLineType,
+        bingo_line_index: defect.bingoLineIndex,
+        cell_position: defect.cellPosition,
+        validated: false,
+        created_by: defect.operatorId || '00000000-0000-0000-0000-000000000001',
+        factory_id: defect.factoryId,
+        line_number: defect.lineNumber,
+        epf_number: defect.epfNumber,
+        operation: defect.operation,
+        status: defect.status || 'pending',
+        reworked: defect.reworked || false,
+        points_awarded: defect.pointsAwarded || 0
+      };
+      
+      // Use default bingo card if the provided ID doesn't exist
+      defectData.bingo_card_id = '00000000-0000-0000-0000-000000000001';
+      
+      // Check if the bingo card ID exists - only include it if it's a valid UUID format
+      if (defect.bingoCardId && 
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(defect.bingoCardId)) {
+        // Verify that this is a real bingo card ID by checking if it exists in the bingo_cards table
+        try {
+          const { data: cardExists } = await supabase
+            .from('bingo_cards')
+            .select('id')
+            .eq('id', defect.bingoCardId)
+            .single();
+            
+          if (cardExists) {
+            defectData.bingo_card_id = defect.bingoCardId;
+          }
+        } catch (e) {
+          console.log('Bingo card ID not found in database, using default');
+        }
+      }
+      
+      // Fix for potential invalid UUID format in factory_id (same as in useDefects)
+      if (defectData.factory_id === 'A6') {
+        defectData.factory_id = '00000000-0000-0000-0000-000000000001';
+      } else if (!defectData.factory_id.includes('-')) {
+        try {
+          // Attempt to load from localStorage mapping
+          const factoryMapping = JSON.parse(localStorage.getItem('factory-id-mapping') || '{}');
+          if (factoryMapping[defectData.factory_id.toLowerCase()]) {
+            defectData.factory_id = factoryMapping[defectData.factory_id.toLowerCase()];
+          } else {
+            // Fallback to hardcoded mapping
+            defectData.factory_id = '00000000-0000-0000-0000-000000000001';
+          }
+        } catch (e) {
+          // If parsing fails, use default UUID
+          defectData.factory_id = '00000000-0000-0000-0000-000000000001';
+        }
+      }
+      
+      console.log('Inserting bingo defect into Supabase:', defectData);
+      
+      const { data, error } = await supabase
+        .from('bingo_defects')
+        .insert([defectData])
+        .select();
+        
+      if (error) {
+        console.error('Error adding bingo defect:', error);
+        throw error;
+      }
+      
+      // Update local state
+      fetchBingoDefects();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in addBingoDefect:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchBingoDefects, ensureDefaultBingoCard]);
+
+  const validateBingoDefect = useCallback(async (id: string, validate: boolean, comment?: string) => {
+    try {
+      // Default UUID for validation
+      const DEFAULT_VALIDATOR_UUID = '00000000-0000-0000-0000-000000000001';
+      
+      // Create update payload
+      const updatePayload = {
+        validated: validate,
+        supervisor_comment: comment || null,
+        validated_by: DEFAULT_VALIDATOR_UUID,
+        validated_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('bingo_defects')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error validating bingo defect:', error);
+        throw error;
+      }
+      
+      // Refresh data
+      await fetchBingoDefects();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in validateBingoDefect:', error);
+      throw error;
+    }
+  }, [fetchBingoDefects]);
+
+  const getBingoDefectsStats = useCallback(async () => {
+    try {
+      // Get total defects
+      const { count, error: countError } = await supabase
+        .from('bingo_defects')
+        .select('*', { count: 'exact', head: true });
+        
+      if (countError) {
+        throw countError;
+      }
+      
+      // Get defects by status
+      const { data: statusData, error: statusError } = await supabase
+        .from('bingo_defects')
+        .select('status')
+        .is('validated', true);
+        
+      if (statusError) {
+        throw statusError;
+      }
+      
+      // Get bingo line defects
+      const { data: bingoLineData, error: bingoLineError } = await supabase
+        .from('bingo_defects')
+        .select('is_bingo_line')
+        .eq('is_bingo_line', true);
+        
+      if (bingoLineError) {
+        throw bingoLineError;
+      }
+      
+      // Calculate stats
+      const stats = {
+        total: count || 0,
+        validated: statusData?.length || 0,
+        bingoLines: bingoLineData?.length || 0
+      };
+      
+      return stats;
+    } catch (error) {
+      console.error('Error getting bingo defects stats:', error);
+      throw error;
+    }
+  }, []);
+
+  return {
+    bingoDefects,
+    loading,
+    addBingoDefect,
+    validateBingoDefect,
+    fetchBingoDefects,
+    getBingoDefectsStats,
+    ensureDefaultBingoCard
+  };
 } 

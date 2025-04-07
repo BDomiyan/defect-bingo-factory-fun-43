@@ -1,22 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, XCircle, Eye, Award, PartyPopper } from 'lucide-react';
+import { CheckCircle, XCircle, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BingoCell } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Textarea } from '@/components/ui/textarea';
 
 interface SupervisorNotificationProps {
   isOpen: boolean;
@@ -40,6 +36,7 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
 }) => {
   const [awards, setAwards] = useLocalStorage('quality-awards', []);
   const [showAward, setShowAward] = useState(false);
+  const [comment, setComment] = useState('');
   
   // Show award animation when a line is validated
   useEffect(() => {
@@ -81,6 +78,9 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
     onClose();
   };
   
+  // Get the selected cell to display details
+  const selectedCell = cells.length > 0 ? cells[0] : null;
+  
   if (!completedLine || !cells.length) return null;
   
   return (
@@ -88,65 +88,98 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
       <AlertDialog open={isOpen} onOpenChange={onClose}>
         <AlertDialogContent className="max-w-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl text-purple-600 flex items-center gap-2">
-              <Award className="h-5 w-5 text-yellow-500" />
-              Bingo Line Completion!
+            <AlertDialogTitle className="flex justify-between items-center">
+              <h2 className="text-xl">Validate Defect</h2>
+              <button 
+                className="text-gray-500 hover:text-gray-700" 
+                onClick={onClose}
+              >
+                ✕
+              </button>
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <p className="mb-2">
-                <span className="font-semibold text-foreground">{playerName}</span> has completed a 
-                <Badge variant="outline" className="mx-1 bg-primary/10">
-                  {completedLine.type === 'row' ? 'Row' : 
-                   completedLine.type === 'column' ? 'Column' : 'Diagonal'} {completedLine.index + 1}
-                </Badge>
-                line on their Bingo board.
-              </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Please verify that all defects in this line are valid before approving.
-              </p>
-            </AlertDialogDescription>
+            <p className="text-gray-500 mt-2">
+              Review the defect information and provide feedback
+            </p>
           </AlertDialogHeader>
           
-          <div className="max-h-72 overflow-auto p-1">
-            <div className="grid gap-3">
-              {cells.map((cell, index) => (
-                <Card key={index} className="p-3 shadow-sm grid grid-cols-[auto_1fr] gap-3 items-center border-l-4 border-l-primary">
-                  <div className="rounded-full bg-primary/10 w-8 h-8 flex items-center justify-center text-primary font-medium">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm">
-                      {cell.garmentPart?.name} - {cell.defectType?.name}
+          <div className="my-6">
+            <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
+              <div className="flex items-start">
+                <div className="text-amber-500 mr-3">
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-4">Defect Details</h3>
+                  
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div>
+                      <p className="text-gray-500">Garment Part:</p>
+                      <p className="font-medium">{selectedCell?.garmentPart?.code || 'B'}</p>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                      <span>
-                        Validated at: {cell.validatedAt ? new Date(cell.validatedAt).toLocaleTimeString() : 'N/A'}
-                      </span>
-                      <span className="flex items-center">
-                        <Eye className="h-3 w-3 mr-1" />
-                        {cell.validatedBy || playerName}
-                      </span>
+                    <div>
+                      <p className="text-gray-500">Defect Type:</p>
+                      <p className="font-medium">{selectedCell?.defectType?.code || '2'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Operator:</p>
+                      <p className="font-medium truncate">{playerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Factory:</p>
+                      <p className="font-medium">SCASCADC</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Line:</p>
+                      <p className="font-medium">Line L2</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Time:</p>
+                      <p className="font-medium">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
                     </div>
                   </div>
-                </Card>
-              ))}
+                </div>
+              </div>
             </div>
           </div>
           
-          <AlertDialogFooter className="gap-2 sm:gap-0 mt-4">
-            <AlertDialogCancel asChild>
-              <Button variant="outline" className="flex items-center gap-1" onClick={handleReject}>
-                <XCircle className="h-4 w-4 text-destructive" />
-                Reject Line
+          <div className="border-t border-gray-200 pt-4 mb-4">
+            <h3 className="text-lg font-medium mb-2">Supervisor Comment</h3>
+            <Textarea
+              placeholder="Add a comment (required for rejection)"
+              className="w-full"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex justify-between mt-4">
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              className="w-24"
+            >
+              Cancel
+            </Button>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="destructive"
+                onClick={handleReject}
+                className="flex items-center gap-1 w-24"
+              >
+                <XCircle className="h-4 w-4" />
+                Reject
               </Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button className="bg-green-600 hover:bg-green-700 flex items-center gap-1" onClick={handleValidate}>
+              
+              <Button 
+                className="bg-blue-950 hover:bg-blue-900 flex items-center gap-1 w-24"
+                onClick={handleValidate}
+              >
                 <CheckCircle className="h-4 w-4" />
-                Validate Line
+                Verify
               </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
+            </div>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
       
@@ -154,7 +187,7 @@ const SupervisorNotification: React.FC<SupervisorNotificationProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="bg-black/80 text-white p-8 rounded-lg animate-scale-in">
             <div className="text-center">
-              <PartyPopper className="h-20 w-20 text-yellow-500 mx-auto mb-4 animate-bounce" />
+              <Award className="h-20 w-20 text-yellow-500 mx-auto mb-4 animate-bounce" />
               <h2 className="text-2xl font-bold mb-2">Award Earned!</h2>
               <p className="text-lg mb-4">Lightning Spotter</p>
               <p className="text-sm opacity-80">First to complete a Bingo line</p>

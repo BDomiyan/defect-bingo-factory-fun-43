@@ -36,7 +36,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo, initialBoar
 
   // Check if the defect and garment part combination is valid based on common pairs
   const isValidDefectPair = useCallback((garmentPart: GarmentPart, defectType: DefectType) => {
-    return isValidCombination(garmentPart, defectType);
+    return true; // All combinations are valid now
   }, []);
 
   // Handle starting to drag an item (either defect or garment part)
@@ -66,35 +66,11 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo, initialBoar
         ...newBoard[rowIndex][colIndex],
         defectType: draggedItem.data as DefectType
       };
-      
-      // If both parts are present, check if it's a valid pair
-      if (newBoard[rowIndex][colIndex].garmentPart) {
-        const garmentPart = newBoard[rowIndex][colIndex].garmentPart!;
-        const defectType = draggedItem.data as DefectType;
-        
-        if (isValidDefectPair(garmentPart, defectType)) {
-          toast.success("Perfect match!", {
-            description: `${garmentPart.name} + ${defectType.name} is a common defect pair`
-          });
-        }
-      }
     } else if (draggedItem.type === 'garment') {
       newBoard[rowIndex][colIndex] = {
         ...newBoard[rowIndex][colIndex],
         garmentPart: draggedItem.data as GarmentPart
       };
-      
-      // If both parts are present, check if it's a valid pair
-      if (newBoard[rowIndex][colIndex].defectType) {
-        const garmentPart = draggedItem.data as GarmentPart;
-        const defectType = newBoard[rowIndex][colIndex].defectType!;
-        
-        if (isValidDefectPair(garmentPart, defectType)) {
-          toast.success("Perfect match!", {
-            description: `${garmentPart.name} + ${defectType.name} is a common defect pair`
-          });
-        }
-      }
     }
     
     setBoard(newBoard);
@@ -106,7 +82,7 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo, initialBoar
     
     // Reset the dragged item
     setDraggedItem(null);
-  }, [board, draggedItem, isValidDefectPair, onBoardChange]);
+  }, [board, draggedItem, onBoardChange]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedItem(null);
@@ -229,16 +205,6 @@ export const useDragDropGrid = ({ boardSize, onBoardChange, onBingo, initialBoar
       return false;
     }
     
-    // Check if the pair is valid
-    const garmentPart = board[rowIndex][colIndex].garmentPart!;
-    const defectType = board[rowIndex][colIndex].defectType!;
-    
-    if (!isValidDefectPair(garmentPart, defectType)) {
-      // This error is less likely since we already checked in addDefectToCell
-      console.log("Cell validation failed: Invalid defect pair");
-      return false;
-    }
-
     const newBoard: BingoBoard = JSON.parse(JSON.stringify(board));
     newBoard[rowIndex][colIndex] = {
       ...newBoard[rowIndex][colIndex],

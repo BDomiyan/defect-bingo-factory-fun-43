@@ -188,15 +188,10 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
     }
   }, [supabaseOperators, operatorsLoading]);
 
-  // Filter defect types based on selected garment part
+  // Return all defect types regardless of garment part
   const filteredDefectTypes = useMemo(() => {
-    if (!garmentPart) return DEFECT_TYPES;
-    
-    const pair = COMMON_DEFECT_PAIRS.find(pair => pair.garmentCode === garmentPart);
-    if (!pair) return DEFECT_TYPES;
-    
-    return DEFECT_TYPES.filter(defect => pair.defectCodes.includes(defect.code));
-  }, [garmentPart]);
+    return DEFECT_TYPES;
+  }, []);
   
   const selectedFactory = availableFactories.find(f => f.id === factoryId);
 
@@ -214,8 +209,17 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
         setOperatorInput(selectedOp.name);
         setOperatorIdInput(selectedOp.id);
         setEpfNumber(selectedOp.epf_number || '');
+        
+        // Check for operation in the operator data
         if (selectedOp.operation) {
           setOperation(selectedOp.operation);
+        } else {
+          // If not found in DB, check localStorage workaround
+          const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+          const storedOperation = operationMappings[operatorId];
+          if (storedOperation) {
+            setOperation(storedOperation);
+          }
         }
       }
     }
@@ -230,8 +234,17 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
       setOperatorInput(selectedOp.name);
       setOperatorIdInput(selectedOp.id);
       setEpfNumber(selectedOp.epf_number || '');
+      
+      // Check for operation in the operator data
       if (selectedOp.operation) {
         setOperation(selectedOp.operation);
+      } else {
+        // If not found in DB, check localStorage workaround
+        const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+        const storedOperation = operationMappings[operatorId];
+        if (storedOperation) {
+          setOperation(storedOperation);
+        }
       }
     }
   };
@@ -553,6 +566,7 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
           <Select 
             value={operation} 
             onValueChange={setOperation}
+            disabled={!!selectedOperator}
           >
             <SelectTrigger id="operation" className="border-blue-200">
               <SelectValue placeholder="Select operation" />
@@ -565,6 +579,11 @@ const DefectRecorder: React.FC<DefectRecorderProps> = ({
               ))}
             </SelectContent>
           </Select>
+          {selectedOperator && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Operation is set based on the selected operator and cannot be changed
+            </p>
+          )}
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -13,6 +13,8 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Player, GarmentPart, DefectType, BingoBoard as BingoBoardType, BingoCell, RecordedDefect } from '@/lib/types';
+import { useDefects, useBingoDefects } from '@/lib/supabase/hooks';
+import { useAuth } from '@/context/auth-context';
 
 interface BingoBoardProps {
   boardSize?: number;
@@ -22,8 +24,8 @@ interface BingoBoardProps {
 
 export const BingoBoard: React.FC<BingoBoardProps> = ({ 
   boardSize = 5,
-  playerName = "Guest Player",
-  operation
+  playerName = "Anonymous Player",
+  operation = "Unknown"
 }) => {
   const [activeTab, setActiveTab] = useState("board");
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
@@ -37,7 +39,11 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
   const [currentCompletedLine, setCurrentCompletedLine] = useState<{type: string, index: number} | null>(null);
   const [completedLineCells, setCompletedLineCells] = useState<BingoCell[]>([]);
   
-  // Store defects locally
+  // Supabase integration
+  const { addDefect: addDefectToSupabase, validateDefect: validateDefectInSupabase } = useDefects();
+  const { user } = useAuth();
+  
+  // Store defects locally as backup
   const [localDefects, setLocalDefects] = useLocalStorage<RecordedDefect[]>('local-defects', []);
   
   // Initialize local board state
@@ -105,19 +111,8 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
   // Add effect to update relevant defects when garment part is selected
   useEffect(() => {
     if (selectedGarmentPart) {
-      // Find relevant defects for this garment part from COMMON_DEFECT_PAIRS
-      const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === selectedGarmentPart.code);
-      
-      if (pair) {
-        // Filter defect types to only include those valid for this garment part
-        const filteredDefects = DEFECT_TYPES.filter(defect => 
-          pair.defectCodes.includes(defect.code)
-        );
-        setRelevantDefects(filteredDefects);
-      } else {
-        // If no specific rules, show all defects
-        setRelevantDefects(DEFECT_TYPES);
-      }
+      // Show all defect types for any garment part
+      setRelevantDefects(DEFECT_TYPES);
       
       // Update drag step to defect selection
       setDragStep('defect');
@@ -213,7 +208,26 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
     return cells;
   };
   
-  const handleBingo = (newLines: Array<{type: string, index: number}>) => {
+  // Add useBingoDefects hook
+  const { addBingoDefect, validateBingoDefect, bingoDefects } = useBingoDefects();
+  
+  // Add state to track defects we've already recorded
+  const [recordedDefects, setRecordedDefects] = useState<Map<string, string>>(new Map());
+  
+  // Effect to update recordedDefects state when bingoDefects changes
+  useEffect(() => {
+    const defectsMap = new Map<string, string>();
+    bingoDefects.forEach(defect => {
+      // Create a key using cell position, garment part and defect type
+      if (defect.cell_position) {
+        const key = `${defect.cell_position}-${defect.garment_part}-${defect.defect_type}`;
+        defectsMap.set(key, defect.id);
+      }
+    });
+    setRecordedDefects(defectsMap);
+  }, [bingoDefects]);
+  
+  const handleBingo = async (newLines: Array<{type: string, index: number}>) => {
     if (newLines.length > 0) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
@@ -239,6 +253,78 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
       const currentScore = Number(localStorage.getItem('bingo-score') || '0');
       localStorage.setItem('bingo-score', String(currentScore + pointsToAdd));
       
+      // Record bingo line in bingo_defects table
+      try {
+        // Get current user ID (or use a default if not available)
+        const currentUserId = localStorage.getItem('user-id') || '00000000-0000-0000-0000-000000000001';
+        const factoryId = localStorage.getItem('factory-id') || '00000000-0000-0000-0000-000000000001';
+        const lineNumber = localStorage.getItem('line-number') || 'L1';
+        const epfNumber = localStorage.getItem('epf-number') || '';
+        
+        // Get bingo card ID (or generate a new one)
+        let bingoCardId = localStorage.getItem('bingo-card-id');
+        
+        // Check if the bingo card ID is a valid UUID format
+        const isValidUUID = bingoCardId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bingoCardId);
+        
+        // If not a valid UUID, generate a new one but don't save to localStorage
+        // The database logic in hooks.ts will handle it appropriately
+        if (!isValidUUID) {
+          bingoCardId = undefined;
+        }
+        
+        // Get cells in the bingo line
+        const cells = getCellsForLine(firstLine);
+        
+        // For each cell in the bingo line, record it if it has a defect
+        for (const cell of cells) {
+          if (cell.garmentPart && cell.defectType) {
+            // Check if we already have a defect for this cell
+            const defectKey = `${cell.id}-${cell.garmentPart.code}-${cell.defectType.code}`;
+            const existingDefectId = recordedDefects.get(defectKey);
+            
+            if (existingDefectId) {
+              // Update the existing defect with bingo line information
+              console.log(`Updating existing defect ${existingDefectId} with bingo line info`);
+              
+              // We could update more fields here if needed through a custom function
+              await validateBingoDefect(existingDefectId, true, 'Part of bingo line');
+            } else {
+              // Create defect record
+              const newDefect = {
+                garmentPart: cell.garmentPart,
+                defectType: cell.defectType,
+                bingoCardId: bingoCardId,
+                isBingoLine: true,
+                bingoLineType: firstLine.type,
+                bingoLineIndex: firstLine.index,
+                cellPosition: cell.id, // The cell ID should already be in "row-col" format
+                operatorId: currentUserId,
+                operatorName: playerName,
+                factoryId: factoryId,
+                lineNumber: lineNumber,
+                epfNumber: epfNumber,
+                operation: operation,
+                pointsAwarded: firstLine.type === 'diagonal' ? 40 : 25 // Points for bingo line
+              };
+              
+              // Save to bingo_defects table
+              const result = await addBingoDefect(newDefect);
+              
+              // Update recordedDefects with the new defect
+              if (result && result[0]) {
+                const newMap = new Map(recordedDefects);
+                newMap.set(defectKey, result[0].id);
+                setRecordedDefects(newMap);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error saving bingo line defects:", error);
+        toast.error("Failed to save bingo data");
+      }
+      
       const allCellsMarked = board.every(row => row.every(cell => cell.marked));
       if (allCellsMarked) {
         toast.success("FULL BOARD BINGO!", {
@@ -257,7 +343,135 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
         const fullBoardBonus = 200;
         const currentScore = Number(localStorage.getItem('bingo-score') || '0');
         localStorage.setItem('bingo-score', String(currentScore + fullBoardBonus));
+        
+        // Record full board completion in bingo_defects table
+        try {
+          // Get current user ID (or use a default if not available)
+          const currentUserId = localStorage.getItem('user-id') || '00000000-0000-0000-0000-000000000001';
+          const factoryId = localStorage.getItem('factory-id') || '00000000-0000-0000-0000-000000000001';
+          const lineNumber = localStorage.getItem('line-number') || 'L1';
+          
+          // Get bingo card ID
+          const bingoCardId = localStorage.getItem('bingo-card-id') || crypto.randomUUID();
+          
+          // Create a special "full board" record
+          const fullBoardRecord = {
+            garmentPart: { code: "FULL", name: "Full Board" },
+            defectType: { code: 999, name: "Full Board Completion" },
+            bingoCardId: bingoCardId,
+            isBingoLine: true,
+            bingoLineType: "full-board",
+            bingoLineIndex: 0,
+            cellPosition: "full-board",
+            operatorId: currentUserId,
+            operatorName: playerName,
+            factoryId: factoryId,
+            lineNumber: lineNumber,
+            operation: operation,
+            pointsAwarded: fullBoardBonus
+          };
+          
+          // Save to bingo_defects table
+          await addBingoDefect(fullBoardRecord);
+        } catch (error) {
+          console.error("Error saving full board completion:", error);
+        }
       }
+    }
+  };
+  
+  // Define a function to add defects both locally and to Supabase
+  const addDefect = async (defect: RecordedDefect) => {
+    // Always add to local storage as backup
+    setLocalDefects([...localDefects, defect]);
+    
+    try {
+      // Add to Supabase
+      await addDefectToSupabase(defect);
+      console.log('Defect successfully added to Supabase');
+    } catch (error) {
+      console.error('Error adding defect to Supabase:', error);
+      toast.error('Failed to sync with database', {
+        description: 'Your defect was saved locally but could not be synced with the server'
+      });
+    }
+  };
+  
+  const handleCellValidation = async (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
+    if (!garmentPart || !defectType || !isValid) return;
+    
+    if (selectedCell) {
+      // Add defect to cell
+      const success = addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
+      
+      if (success) {
+        // Mark the cell as validated
+        markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
+        
+        // Format: row-col
+        const cellPosition = `${selectedCell.rowIndex}-${selectedCell.colIndex}`;
+        
+        try {
+          // Get current user ID (or use a default if not available)
+          const currentUserId = localStorage.getItem('user-id') || '00000000-0000-0000-0000-000000000001';
+          const factoryId = localStorage.getItem('factory-id') || '00000000-0000-0000-0000-000000000001';
+          const lineNumber = localStorage.getItem('line-number') || 'L1';
+          const epfNumber = localStorage.getItem('epf-number') || '';
+          
+          // Get bingo card ID (or generate a new one)
+          let bingoCardId = localStorage.getItem('bingo-card-id');
+          
+          // Check if the bingo card ID is a valid UUID format
+          const isValidUUID = bingoCardId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bingoCardId);
+          
+          // If not a valid UUID, don't include it in the defect data
+          if (!isValidUUID) {
+            bingoCardId = undefined;
+          }
+          
+          // Check if we already have a defect for this cell
+          const defectKey = `${cellPosition}-${garmentPart.code}-${defectType.code}`;
+          const existingDefectId = recordedDefects.get(defectKey);
+          
+          if (existingDefectId) {
+            // Update the existing defect rather than creating a new one
+            console.log(`Updating existing defect ${existingDefectId} rather than creating a new one`);
+            await validateBingoDefect(existingDefectId, true);
+          } else {
+            // Create defect record
+            const newDefect = {
+              garmentPart: garmentPart,
+              defectType: defectType,
+              bingoCardId: bingoCardId,
+              isBingoLine: false, // Regular cell marking, not a bingo line
+              cellPosition: cellPosition,
+              operatorId: currentUserId,
+              operatorName: playerName,
+              factoryId: factoryId,
+              lineNumber: lineNumber,
+              epfNumber: epfNumber,
+              operation: operation,
+              pointsAwarded: 10 // Base points for finding a defect
+            };
+            
+            // Save to bingo_defects table
+            const result = await addBingoDefect(newDefect);
+            
+            // Update recordedDefects with the new defect
+            if (result && result[0]) {
+              const newMap = new Map(recordedDefects);
+              newMap.set(defectKey, result[0].id);
+              setRecordedDefects(newMap);
+            }
+          }
+        } catch (error) {
+          console.error("Error saving bingo defect:", error);
+          toast.error("Failed to save defect");
+        }
+      }
+      
+      setSelectedCell(null);
+      setModalOpen(false);
     }
   };
   
@@ -267,6 +481,27 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
         description: "Points awarded to your account",
         duration: 5000,
       });
+      
+      // If we have completed line cells, update their status in the database
+      if (completedLineCells.length > 0) {
+        completedLineCells.forEach(cell => {
+          if (cell.garmentPart && cell.defectType) {
+            // Find the defect in local storage to get its ID
+            const matchingDefect = localDefects.find(d => 
+              d.garmentPart.code === cell.garmentPart?.code && 
+              d.defectType.code === cell.defectType?.code
+            );
+            
+            if (matchingDefect) {
+              // Update defect status in Supabase
+              validateDefectInSupabase(matchingDefect.id, true, 'Validated as part of Bingo line')
+                .catch(error => {
+                  console.error('Error validating defect in Supabase:', error);
+                });
+            }
+          }
+        });
+      }
     } else {
       if (currentCompletedLine) {
         const newBoard = [...board];
@@ -305,89 +540,7 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
     }
   };
   
-  // Define a local function to add defects
-  const addDefectLocally = (defect: RecordedDefect) => {
-    setLocalDefects([...localDefects, defect]);
-  };
-  
-  const handleValidateDefect = async (garmentPart: GarmentPart | null, defectType: DefectType | null, isValid: boolean) => {
-    if (!selectedCell || !garmentPart || !defectType) return;
-    
-    // First add the defect to the cell
-    const pairIsValid = addDefectToCell(selectedCell.rowIndex, selectedCell.colIndex, garmentPart, defectType);
-    
-    if (!pairIsValid) {
-      toast.warning("Unusual combination", {
-        description: "This defect rarely occurs on this garment part. You can still proceed with validation."
-      });
-    }
-    
-    // If the defect was added successfully, proceed with marking it
-    if (isValid) {
-      const success = markCell(selectedCell.rowIndex, selectedCell.colIndex, playerName);
-      
-      if (success) {
-        toast.success("Defect validated!", {
-          description: "Cell marked as validated"
-        });
-        
-        // Create a defect record with proper user information
-        const defectRecord: RecordedDefect = {
-          id: crypto.randomUUID(),
-          defectType: defectType,
-          garmentPart: garmentPart,
-          timestamp: new Date().toISOString(),
-          operatorId: crypto.randomUUID(),
-          operatorName: playerName,
-          factoryId: '00000000-0000-0000-0000-000000000001',
-          lineNumber: 'L1',
-          epfNumber: 'N/A',
-          operation: operation || undefined,
-          status: 'verified',
-          reworked: false
-        };
-        
-        // Add defect to local state only
-        addDefectLocally(defectRecord);
-        
-        // Show success message
-        toast.success("Defect recorded", {
-          description: "Defect has been added to your game record",
-          duration: 3000
-        });
-        
-        // Show a toast with option to continue to next cell
-        toast.success("Continue to next cell?", {
-          description: "Click here to add next defect",
-          duration: 5000,
-          action: {
-            label: "Next Cell",
-            onClick: () => {
-              const nextCell = findNextEmptyCell();
-              if (nextCell) {
-                setSelectedCell(nextCell);
-                setModalOpen(true);
-              } else {
-                toast.info("No more empty cells", {
-                  description: "All cells have defects added"
-                });
-              }
-            }
-          }
-        });
-      } else {
-        // Keep the defect in the cell but show it needs validation
-        toast.info("Defect added but needs validation", {
-          description: "Click the cell again to validate this defect",
-          duration: 5000
-        });
-      }
-    }
-    
-    setModalOpen(false);
-    setSelectedCell(null);
-  };
-  
+  // Define updatePlayerStats function early, before it's used
   const updatePlayerStats = (newBingos: number) => {
     if (newBingos <= 0) return;
     
@@ -778,7 +931,7 @@ export const BingoBoard: React.FC<BingoBoardProps> = ({
           setModalOpen(false);
           setSelectedCell(null);
         }}
-        onValidate={handleValidateDefect}
+        onValidate={handleCellValidation}
         cell={selectedCell ? board[selectedCell.rowIndex][selectedCell.colIndex] : null}
       />
       

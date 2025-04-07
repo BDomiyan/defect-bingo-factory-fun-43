@@ -58,6 +58,11 @@ const Header = () => {
       icon: <LineChart className="h-4 w-4" />,
     },
     {
+      name: 'Bingo Dashboard',
+      href: '/bingo-dashboard',
+      icon: <LayoutGrid className="h-4 w-4" />,
+    },
+    {
       name: 'Admin',
       href: '/admin',
       icon: <Settings className="h-4 w-4" />,

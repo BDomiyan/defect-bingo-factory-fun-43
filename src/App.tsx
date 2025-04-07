@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/auth-context";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { ensureDatabaseSchema } from "@/lib/supabase/db-setup";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -15,6 +15,7 @@ import Leaderboard from "./components/Leaderboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Admin from "./pages/Admin";
+import BingoDashboard from "./pages/BingoDashboard";
 
 // Create the query client outside of the component for better performance
 const queryClient = new QueryClient({
@@ -36,6 +37,20 @@ const App = () => {
     setLastVisited(path);
     return null;
   };
+  
+  // Check database schema on app load
+  useEffect(() => {
+    // Fix for process.env not being defined in the browser
+    const isProduction = window.location.hostname !== 'localhost';
+    const checkDbSchema = localStorage.getItem('CHECK_DB_SCHEMA') === 'true';
+    
+    // Only run in production or when specifically enabled
+    if (isProduction || checkDbSchema) {
+      ensureDatabaseSchema().catch(error => {
+        console.error('Failed to check database schema:', error);
+      });
+    }
+  }, []);
   
   return (
     <QueryClientProvider client={queryClient}>
@@ -104,6 +119,15 @@ const App = () => {
                     </ProtectedRoute>
                   } 
                   action={() => handleRouteChange('/admin')}
+                />
+                <Route 
+                  path="/bingo-dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <BingoDashboard />
+                    </ProtectedRoute>
+                  } 
+                  action={() => handleRouteChange('/bingo-dashboard')}
                 />
                 <Route path="*" element={<NotFound />} />
               </Routes>

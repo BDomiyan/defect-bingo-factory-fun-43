@@ -1,52 +1,60 @@
-
 import { GarmentPart, DefectType } from '@/lib/types';
 
 // List of all garment parts
 export const GARMENT_PARTS: GarmentPart[] = [
-  { code: 'SL', name: 'Sleeve' },
-  { code: 'CL', name: 'Collar' },
-  { code: 'CF', name: 'Cuff' },
-  { code: 'PK', name: 'Pocket' },
-  { code: 'SH', name: 'Shoulder' },
-  { code: 'YK', name: 'Yoke' },
-  { code: 'FS', name: 'Front Seam' },
-  { code: 'BS', name: 'Back Seam' },
-  { code: 'SS', name: 'Side Seam' },
-  { code: 'HM', name: 'Hem' },
-  { code: 'BT', name: 'Button' },
-  { code: 'BH', name: 'Buttonhole' },
-  { code: 'LB', name: 'Label' },
-  { code: 'ZP', name: 'Zipper' },
-  { code: 'WB', name: 'Waistband' },
-  { code: 'CP', name: 'Center Panel' },
-  { code: 'EP', name: 'Elbow Patch' },
-  { code: 'HD', name: 'Hood' },
-  { code: 'PL', name: 'Placket' },
-  { code: 'TB', name: 'Tab' },
+  { code: 'A', name: 'Label attach' },
+  { code: 'B', name: 'Neck binding' },
+  { code: 'C', name: 'Sleeve attach' },
+  { code: 'D', name: 'Side seam' },
+  { code: 'E', name: 'Side seam' },
+  { code: 'F', name: 'Zipper bar tack' },
+  { code: 'G', name: 'Sleeve tack' },
+  { code: 'H', name: 'Croch attach' },
+  { code: 'I', name: 'Foot attach' },
+  { code: 'J', name: 'Heat seal' },
+  { code: 'K', name: 'Zipper outline' },
+  { code: 'L', name: 'In seam' },
+  { code: 'M', name: 'Neck tack' },
+  { code: 'N', name: 'Bottom attach' },
+  { code: 'O', name: 'Sleeve Dart' },
+  { code: 'P', name: 'Sleeve cuff' },
+  { code: 'Q', name: 'Tab' },
+  { code: 'R', name: 'Foot bartack' },
+  { code: 'S', name: 'Box tack' },
+  { code: 'T', name: 'Top foot' },
+  { code: 'U', name: 'Elastic' },
+  { code: 'V', name: 'Zipper' },
+  { code: 'W', name: 'Facing tack' },
+  { code: 'X', name: 'Waist attach' },
+  { code: 'Y', name: 'Bottom binding' },
 ];
 
 // List of all defect types
 export const DEFECT_TYPES: DefectType[] = [
-  { code: 1, name: 'Broken Stitch' },
-  { code: 2, name: 'Skip Stitch' },
-  { code: 3, name: 'Open Seam' },
-  { code: 4, name: 'Raw Edge' },
-  { code: 5, name: 'Puckering' },
-  { code: 6, name: 'Oil Stain' },
-  { code: 7, name: 'Dirt Mark' },
-  { code: 8, name: 'Needle Mark' },
-  { code: 9, name: 'Uneven Stitch' },
-  { code: 10, name: 'Loose Thread' },
-  { code: 11, name: 'Wrong Measurement' },
-  { code: 12, name: 'Wrong Position' },
-  { code: 13, name: 'Missing Component' },
-  { code: 14, name: 'Color Variation' },
-  { code: 15, name: 'Pleating' },
-  { code: 16, name: 'Incorrect Trim' },
-  { code: 17, name: 'Hole' },
-  { code: 18, name: 'Run-off' },
-  { code: 19, name: 'Twisted Seam' },
-  { code: 20, name: 'Uneven Hem' },
+  { code: 1, name: 'Printing/MBRO' },
+  { code: 2, name: 'Slubes/Holes/NAR' },
+  { code: 3, name: 'Color Shading' },
+  { code: 4, name: 'Broken Stitches' },
+  { code: 5, name: 'Slip Stitches' },
+  { code: 6, name: 'SPI' },
+  { code: 7, name: 'Puckering' },
+  { code: 8, name: 'Loose Tensions' },
+  { code: 9, name: 'Snap Defects' },
+  { code: 10, name: 'High-Low' },
+  { code: 11, name: 'Uneven/Raw edge' },
+  { code: 12, name: 'Needle Mark' },
+  { code: 13, name: 'Open Seam' },
+  { code: 14, name: 'Pleats' },
+  { code: 15, name: 'Missing Stitches' },
+  { code: 16, name: 'Skip/Run Off' },
+  { code: 17, name: 'Incorrect Label' },
+  { code: 18, name: 'Wrong Placement' },
+  { code: 19, name: 'Looseness' },
+  { code: 20, name: 'Cut Damage' },
+  { code: 21, name: 'Stain' },
+  { code: 22, name: 'Oil Marks' },
+  { code: 23, name: 'Stickers' },
+  { code: 24, name: 'Uncut Thread' },
 ];
 
 // Factory data
@@ -282,12 +290,6 @@ export const AWARDS = [
 
 // Function to check if a defect type and garment part combination is valid
 export const isValidCombination = (garmentPart: GarmentPart, defectType: DefectType): boolean => {
-  // Find the garment part in the common defect pairs
-  const pair = COMMON_DEFECT_PAIRS.find(p => p.garmentCode === garmentPart.code);
-  
-  // If no specific rules for this garment part, consider all combinations valid
-  if (!pair) return true;
-  
-  // Check if the defect code is in the list of common defects for this garment part
-  return pair.defectCodes.includes(defectType.code);
+  // All combinations are valid as per new requirements
+  return true;
 };

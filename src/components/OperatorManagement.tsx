@@ -64,6 +64,12 @@ const OperatorManagement = () => {
     setEpfNumber(operator.epf_number);
     setPlantId(operator.plant_id || '');
     setLineNumber(operator.line_number || '');
+    
+    // Get operation from database or localStorage
+    const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+    const storedOperation = operator.id ? operationMappings[operator.id] : '';
+    setOperationId(operator.operation || storedOperation || '');
+    
     setRole(operator.role);
     setIsEditDialogOpen(true);
   };
@@ -78,6 +84,7 @@ const OperatorManagement = () => {
     }
     
     try {
+      // Create user without the operation field
       const newUser = {
         name,
         email,
@@ -88,7 +95,16 @@ const OperatorManagement = () => {
         password: 'defaultpassword', // This should be handled securely in production
       };
       
-      await addUser(newUser);
+      // Add the user to Supabase
+      const addedUser = await addUser(newUser);
+      
+      // Store operation in localStorage as a workaround
+      if (operationId && addedUser && addedUser.id) {
+        const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+        operationMappings[addedUser.id] = operationId;
+        localStorage.setItem('operator-operations', JSON.stringify(operationMappings));
+      }
+      
       toast.success("Operator added successfully");
       closeAddDialog();
     } catch (error: any) {
@@ -108,6 +124,7 @@ const OperatorManagement = () => {
     }
     
     try {
+      // Update user without the operation field
       const updatedData = {
         name,
         email,
@@ -117,7 +134,16 @@ const OperatorManagement = () => {
         line_number: lineNumber,
       };
       
-      await updateUser(selectedOperator.id, updatedData);
+      // Update the user in Supabase
+      const updatedUser = await updateUser(selectedOperator.id, updatedData);
+      
+      // Store operation in localStorage as a workaround
+      if (operationId && selectedOperator.id) {
+        const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+        operationMappings[selectedOperator.id] = operationId;
+        localStorage.setItem('operator-operations', JSON.stringify(operationMappings));
+      }
+      
       toast.success("Operator updated successfully");
       closeEditDialog();
     } catch (error: any) {
@@ -154,6 +180,23 @@ const OperatorManagement = () => {
   const getPlantName = (plantId: string) => {
     const plant = plants?.find(p => p.id === plantId);
     return plant ? plant.name : plantId;
+  };
+  
+  // Get operation name by ID
+  const getOperationName = (operatorId: string, dbOperation?: string) => {
+    // First check if operation exists in database
+    if (dbOperation) {
+      const operation = operations?.find(op => op.id === dbOperation);
+      if (operation) return operation.name;
+    }
+    
+    // Otherwise check localStorage
+    const operationMappings = JSON.parse(localStorage.getItem('operator-operations') || '{}');
+    const operationId = operationMappings[operatorId];
+    if (!operationId) return '-';
+    
+    const operation = operations?.find(op => op.id === operationId);
+    return operation ? operation.name : '-';
   };
   
   // Loading state
@@ -429,6 +472,7 @@ const OperatorManagement = () => {
                   <TableHead>Plant</TableHead>
                   <TableHead>Line</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Operation</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -453,6 +497,7 @@ const OperatorManagement = () => {
                         {operator.role.charAt(0).toUpperCase() + operator.role.slice(1)}
                       </Badge>
                     </TableCell>
+                    <TableCell>{getOperationName(operator.id, operator['operation'] as string)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button 
